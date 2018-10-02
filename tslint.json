@@ -8,8 +8,11 @@
     "no-console": [
       true
     ],
+    "max-classes-per-file": false,
+    "ter-arrow-parens": false,
     "prefer-for-of": true,
     "prefer-const": true,
+    "max-line-length": false,
     "no-unused-variable": [
       true
     ]
