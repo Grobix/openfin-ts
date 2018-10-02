@@ -1,32 +1,55 @@
 {
-  "name": "open-fin-ts-js-client",
-  "version": "3.0.2",
-  "description": "JS Client für FinTS/HBCI.",
-  "main": "index.js",
-  "directories": {
-    "example": "examples",
-    "test": "test"
-  },
-  "files": [
-    "LICENSE",
-    "History.md",
-    "Readme.md",
-    "index.js",
-    "lib/",
-    "dev/"
-  ],
+  "name": "openfin-ts",
+  "version": "0.0.1",
+  "description": "Typescript compatible fints implementation",
+  "main": "out/index.js",
+  "types": "out/index.d.ts",
   "scripts": {
-    "test": "mocha",
-    "coverage": "istanbul cover node_modules/mocha/bin/_mocha",
-    "test_server": "node dev/Run_FinTSServer.js",
-    "demo": "node examples/zeige_kontoumsaetze.js log | bunyan -l trace",
-    "demo_dbg": "node-debug examples/zeige_kontoumsaetze.js  | bunyan -l trace",
-    "test_dbg": "node-debug _mocha -g 'test_real Test 1'",
-	"test_rundbg" : "node-debug _mocha"
+    "test": "jest --ci --silent",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "tsc"
+  },
+  "keywords": [],
+  "author": "Christian Kosmowski",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^23.3.2",
+    "jest": "^23.6.0",
+    "ts-jest": "^23.1.4",
+    "tslint": "^5.11.0",
+    "tslint-config-airbnb": "^5.11.0",
+    "typescript": "^3.0.3",
+    "body": "5.0.0"    
+  },
+  "dependencies": {
+    "bunyan": "~1.8.9",
+    "encoding": "^0.1.12"
+  },
+  "jest": {
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/test"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/out"
+    ]
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/jschyma/open_fints_js_client"
+    "url": "git+https://github.com/owsas/typescript-module-template.git"
   },
   "keywords": [
     "FinTS",
@@ -37,27 +60,9 @@
     "Konto",
     "Pin/Tan"
   ],
-  "author": "Jens Schyma <jeschyma@gmail.com>",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/jschyma/open_fints_js_client/issues"
+    "url": "https://github.com/owsas/typescript-module-template/issues"
   },
-  "homepage": "https://github.com/jschyma/open_fints_js_client",
-  "engines": {
-    "node": ">= 0.10.0",
-    "npm": ">= 1.0.0"
-  },
-  "dependencies": {
-    "bunyan": "~1.8.9",
-    "encoding": "^0.1.12"
-  },
-  "devDependencies": {
-    "body": "5.0.0",
-    "bunyan-live-logger": "~1.0.2",
-    "cors": "^2.7.1",
-    "express": "~4.12.4",
-    "istanbul": "~0.3.5",
-    "mocha": "2.2.5",
-    "should": "6.0.3"
-  }
+  "homepage": "https://github.com/owsas/typescript-module-template#readme"
 }
