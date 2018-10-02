@@ -13,6 +13,7 @@
     "prefer-for-of": true,
     "prefer-const": true,
     "max-line-length": false,
+    "prefer-template": false,
     "no-unused-variable": [
       true
     ]

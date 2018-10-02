@@ -10,9 +10,17 @@
     "watch": "tsc -w",
     "prepublishOnly": "tsc"
   },
-  "keywords": [],
+  "keywords": [
+    "FinTS",
+    "HBCI",
+    "js",
+    "client",
+    "Bank",
+    "Konto",
+    "Pin/Tan"
+  ],
   "author": "Christian Kosmowski",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/jest": "^23.3.2",
     "jest": "^23.6.0",
@@ -20,7 +28,7 @@
     "tslint": "^5.11.0",
     "tslint-config-airbnb": "^5.11.0",
     "typescript": "^3.0.3",
-    "body": "5.0.0"    
+    "body": "5.0.0"
   },
   "dependencies": {
     "bunyan": "~1.8.9",
@@ -51,16 +59,6 @@
     "type": "git",
     "url": "git+https://github.com/owsas/typescript-module-template.git"
   },
-  "keywords": [
-    "FinTS",
-    "HBCI",
-    "js",
-    "client",
-    "Bank",
-    "Konto",
-    "Pin/Tan"
-  ],
-  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/owsas/typescript-module-template/issues"
   },

@@ -1,4 +1,5 @@
 import {Saldo} from './Saldo';
+import Satz from './Satz';
 
 export class Umsatz {
   public refnr: string;
@@ -7,4 +8,5 @@ export class Umsatz {
   public auszugNr: string;
   public anfangssaldo: Saldo;
   public schlusssaldo: Saldo;
+  public saetze: Satz[];
 }

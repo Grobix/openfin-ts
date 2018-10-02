@@ -47,6 +47,10 @@ export class Parser {
     return this.curPos;
   }
 
+  public getData() {
+    return this.data;
+  }
+
   public clearMarker() {
     this.marker = {};
   }
