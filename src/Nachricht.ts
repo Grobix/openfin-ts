@@ -1,7 +1,8 @@
+import Helper from './Helper';
 import { NULL } from './NULL';
+import { ParseError, Parser } from './Parser';
 import Segment from './Segment';
 import SignInfo from './SignInfo';
-import { Parser } from './Parser';
 
 export default class Nachricht {
 
@@ -102,18 +103,18 @@ export default class Nachricht {
     }
 
     // prüfen ob verschlüsselt war
-    if (this.segments.length == 4 && this.segments[1].name == 'HNVSK' && this.segments[2].name == 'HNVSD') {
-      let first = this.segments[0];
+    if (this.segments.length === 4 && this.segments[1].name === 'HNVSK' && this.segments[2].name === 'HNVSD') {
+      const first = this.segments[0];
       this.hnvsk = this.segments[1];
-      let seg_hnvsd = this.segments[2];
-      let last = this.segments[3];
+      const segHNVSD = this.segments[2];
+      const last = this.segments[3];
       // Neue Segmente hinzufügen
-      this.segments = new Array();
+      this.segments = [];
       this.segments.push(first);
-      if ((this.hnvsk.vers == '3' && this.hnvsk.getEl(1).getEl(1) == 'PIN') || (this.hnvsk.vers == '2' && this.hnvsk.getEl(1) == '998')) {
-        let parser2 = new Parser(seg_hnvsd.getEl(1));
+      if ((this.hnvsk.vers === '3' && this.hnvsk.getEl(1).getEl(1) === 'PIN') || (this.hnvsk.vers === '2' && this.hnvsk.getEl(1) === '998')) {
+        const parser2 = new Parser(segHNVSD.getEl(1).data as string);
         while (parser2.hasNext()) {
-          let segm2 = new Segment();
+          const segm2 = new Segment();
           segm2.parse(parser2);
           this.segments.push(segm2);
           parser2.nextPos();
@@ -123,11 +124,9 @@ export default class Nachricht {
       }
       this.segments.push(last);
     }
-  };
+  }
 
-  this;
-.
-  transformForSend = function () {
+  public transformForSend() {
     let top = this.segments[0].transformForSend();
     let body = '';
 
@@ -139,18 +138,18 @@ export default class Nachricht {
       // Benutzerdefinierte Signatur [Pin,Tan], die Tan nur dann wenn durch den Geschäftsvorfall erforderlich
       if (this.signIt.server === undefined) {
         if (this.signIt.tan === NULL) {
-          this.addSeg(Helper.newSegFromArray('HNSHA', this.proto_version == 300 ? 2 : 1, [1, NULL, [this.signIt.pin]]));
+          this.addSeg(Helper.newSegFromArray('HNSHA', this.protoVersion === 300 ? 2 : 1, [1, NULL, [this.signIt.pin]]));
         } else {
-          this.addSeg(Helper.newSegFromArray('HNSHA', this.proto_version == 300 ? 2 : 1, [1, NULL, [this.signIt.pin, this.signIt.tan]]));
+          this.addSeg(Helper.newSegFromArray('HNSHA', this.protoVersion === 300 ? 2 : 1, [1, NULL, [this.signIt.pin, this.signIt.tan]]));
         }
       } else {
         this.addSeg(Helper.newSegFromArray('HNSHA', 2, [2]));
       }
     }
 
-    for (let i = 1; i != this.segments.length; i++) {
-      body += this.segments[i].transformForSend();
-    }
+    this.segments.forEach(segment => {
+      body += segment.transformForSend();
+    });
 
     // Letztes segment erstellen
     if (this.signIt) {
@@ -173,139 +172,108 @@ export default class Nachricht {
       // Komprimierungsfunktion                       0
       // Zertifikat                                   leer hier
       // +998+1+1::0+1:20141216:205751+2:2:13:@8@:5:1+280:12345678:max:V:0:0+0'
-      if (this.proto_version === 300) {
+      if (this.protoVersion === 300) {
         this.hnvsk = Helper.newSegFromArray('HNVSK', 3, [
           ['PIN', this.signIt.pinVersion === '999' ? 1 : 2], 998, 1, [1, NULL, this.signIt.sysId],
           [1, Helper.convertDateToDFormat(new Date()), Helper.convertDateToTFormat(new Date())],
-          [2, 2, 13, Helper.Byte('\0\0\0\0\0\0\0\0'), 5, 1],
-          [280, this.signIt.blz, this.signIt.kunden_id, 'V', 0, 0], 0,
+          [2, 2, 13, Helper.byte('\0\0\0\0\0\0\0\0'), 5, 1],
+          [280, this.signIt.blz, this.signIt.kundenId, 'V', 0, 0], 0,
         ]);
       } else {
         this.hnvsk = Helper.newSegFromArray('HNVSK', 2, [998, 1, [1, NULL, this.signIt.sysId],
           [1, Helper.convertDateToDFormat(new Date()), Helper.convertDateToTFormat(new Date())],
-          [2, 2, 13, Helper.Byte('\0\0\0\0\0\0\0\0'), 5, 1],
-          [280, this.signIt.blz, this.signIt.kunden_id, 'V', 0, 0], 0,
+          [2, 2, 13, Helper.byte('\0\0\0\0\0\0\0\0'), 5, 1],
+          [280, this.signIt.blz, this.signIt.kundenId, 'V', 0, 0], 0,
         ]);
       }
       this.hnvsk.nr = 998;
-      let seg_hnvsd = Helper.newSegFromArray('HNVSD', 1, [Helper.Byte(body)]);
-      seg_hnvsd.nr = 999;
+      const segHNVSD = Helper.newSegFromArray('HNVSD', 1, [Helper.byte(body)]);
+      segHNVSD.nr = 999;
       body = this.hnvsk.transformForSend();
-      body += seg_hnvsd.transformForSend();
+      body += segHNVSD.transformForSend();
     }
 
     // Abschließen
-    let seg = Helper.newSegFromArray('HNHBS', 1, [this.msg_nr]);
+    const seg = Helper.newSegFromArray('HNHBS', 1, [this.messageNumber]);
     this.addSeg(seg);
     body += seg.transformForSend();
-    let llength = top.length + body.length;
-    this.segments[0].store.data[0] = Helper.getNrWithLeadingNulls(llength, 12);
+    const llength = top.length + body.length;
+    this.segments[0].store.data[0].data = Helper.getNrWithLeadingNulls(llength, 12);
     top = this.segments[0].transformForSend();
     return top + body;
-  };
+  }
 
-  this;
-.
-  addSeg = function (seg) {
-    seg.nr = this.segments_ctr + 1;
-    this.segments[this.segments_ctr] = seg;
-    this.segments_ctr++;
+  public addSeg(seg: Segment) {
+    seg.nr = this.segmentsCounter + 1;
+    this.segments[this.segmentsCounter] = seg;
+    this.segmentsCounter += 1;
     return seg.nr;
+  }
+
+  public isSigned = function () {
+    return this.selectSegByName('HNSHK').length === 1;
   };
 
-  this;
-.
-  isSigned = function () {
-    return this.selectSegByName('HNSHK').length == 1;
+  public selectSegByName = function (name) {
+    return this.segments.filter(segment => segment.name === name);
   };
 
-  this;
-.
-  selectSegByName = function (name) {
-    let r = [];
-    for (let i = 0; i != this.segments.length; i++) {
-      if (this.segments[i].name == name) {
-        r.push(this.segments[i]);
-      }
-    }
-    return r;
+  public selectSegByBelongTo = function (belongTo) {
+    return this.segments.filter(segment => segment.bez === belongTo + '');
   };
 
-  this;
-.
-  selectSegByBelongTo = function (belong_to) {
-    let r = [];
-    for (let i = 0; i != this.segments.length; i++) {
-      if (this.segments[i].bez == (belong_to + '')) {
-        r.push(this.segments[i]);
-      }
-    }
-    return r;
+  public selectSegByNameAndBelongTo = function (name, belongTo) {
+    return this.segments.filter(segment => segment.name === name && segment.bez === belongTo + '');
   };
 
-  this;
-.
-  selectSegByNameAndBelongTo = function (name, belong_to) {
-    let r = [];
-    for (let i = 0; i != this.segments.length; i++) {
-      if (this.segments[i].name == name && this.segments[i].bez == (belong_to + '')) {
-        r.push(this.segments[i]);
-      }
-    }
-    return r;
-  };
-
-  // Nur für Debug/Entwicklungszwecke um ein JS Response aus einem echten Response zu generieren
-  this;
-.
-  create_debug_js = function () {
-    let top = 'var sendMsg = new FinTSClient().testReturnMessageClass();\n\r';
+  public createDebugJS = function () {
+    const top = 'var sendMsg = new FinTSClient().testReturnMessageClass();\n\r';
     let sig = '\n\r';
     let body = '';
 
-    for (let i = 0; i != this.segments.length; i++) {
-      if (this.segments[i].name == 'HNHBK' ||
-        this.segments[i].name == 'HNHBS' ||
-        this.segments[i].name == 'HNSHA') {
+    this.segments.forEach(segment => {
+      if (segment.name === 'HNHBK' ||
+        segment.name === 'HNHBS' ||
+        segment.name === 'HNSHA') {
         // auslassen
-      } else if (this.segments[i].name == 'HNSHK') {
+      } else if (segment.name === 'HNSHK') {
         // Signatur
-        sig = "sendMsg.sign({'pin':'pin1234','tan':null,'sysId':'" + this.segments[i].getEl(6).getEl(3) + "'});\n\r";
+        sig = "sendMsg.sign({'pin':'pin1234','tan':null,'sysId':'" + segment.getEl(6).getEl(3) + "'});\n\r";
       } else {
         // generate array structure out of segment
-        let seg_array = new Array();
+        const segArray = [];
 
-        for (let a = 0; a != this.segments[i].store.data.length; a++) {
-          if (this.segments[i].store.desc[a] == 1) { // DE
-            seg_array.push(this.segments[i].store.data[a]);
-          } else if (this.segments[i].store.desc[a] == 2) { // DEG
+        segment.store.data.forEach(dataElement => {
+          if (dataElement.desc === 1) { // DE
+            segArray.push(dataElement.data);
+          } else if (dataElement.desc === 2) { // DEG
             // DEG durchforsten
-            let deg_array = new Array();
+            const degArray = [];
 
-            for (let d = 0; d != this.segments[i].store.data[a].data.length; d++) {
-              if (this.segments[i].store.data[a].desc[d] == 1) { // DE
-                deg_array.push(this.segments[i].store.data[a].data[d]);
-              } else if (this.segments[i].store.data[a].desc[d] == 2) { // DEG
+            dataElement.data.data.forEach(groupElement => {
+              if (groupElement.desc === 1) { // DE
+                degArray.push(groupElement.data);
+              } else if (groupElement.desc === 2) { // DEG
                 // sollte hier garnicht auftreten
                 throw new Error('FEHLER DEG erhalten wo dies nicht passieren sollte');
-              } else if (this.segments[i].store.desc[a].desc[d] == 3) { // BINARY
-                deg_array.push('BYTE' + this.segments[i].store.data[a].data[d]);
+              } else if (groupElement.desc === 3) { // BINARY
+                degArray.push('BYTE' + groupElement.data);
               }
-            }
+            });
 
-            seg_array.push(deg_array);
-          } else if (this.segments[i].store.desc[a] == 3) { // BINARY
-            seg_array.push('BYTE' + this.segments[i].store.data[a]);
+            segArray.push(degArray);
+          } else if (dataElement.desc === 3) { // BINARY
+            segArray.push('BYTE' + dataElement.data);
           }
-        }
-
-        if (this.segments[i].bez == 0) {
-          body += "sendMsg.addSeg(Helper.newSegFromArray('" + this.segments[i].name + "', " + this.segments[i].vers + ', ' + JSON.stringify(seg_array) + '));\n\r';
+        });
+        if (segment.bez === 0) {
+          body += "sendMsg.addSeg(Helper.newSegFromArray('" + segment.name + "', " + segment.vers + ', ' + JSON.stringify(segArray) + '));\n\r';
         } else {
-          body += "sendMsg.addSeg(Helper.newSegFromArrayWithBez('" + this.segments[i].name + "', " + this.segments[i].vers + ',' + this.segments[i].bez + ',' + JSON.stringify(seg_array) + '));\n\r';
+          body += "sendMsg.addSeg(Helper.newSegFromArrayWithBez('" + segment.name + "', " + segment.vers + ',' + segment.bez + ',' + JSON.stringify(segArray) + '));\n\r';
         }
       }
-    }
+    });
+
     return top + sig + body;
   };
 }
