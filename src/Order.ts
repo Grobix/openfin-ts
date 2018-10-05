@@ -1,11 +1,13 @@
-import any = jasmine.any;
+import Segment from './Segment';
+import SendMessage from './SendMessage';
+import SignInfo from './SignInfo';
 
 export default class Order {
 
   public error = null;
 
   private intReqTan = false;
-  private intSendMsg = [];
+  private intSendMsg: SendMessage[] = [];
   private intGmsgList = [];
 
   constructor(public client) {}
@@ -14,61 +16,60 @@ export default class Order {
     this.intReqTan = true;
   }
 
-this.msg = function (in_data) {
+  public msg(inData) {
     // 0. check no error
     if (this.error) {
       return false;
     }
     // 1. check if we support one of the segment versions
-    let act_vers = 0;
-    if (in_data.ki_type in client.bpd.gv_parameters) {
-      let avail_vers = Object.keys(in_data.send_msg).sort(function (a, b) {
-        return b - a;
+    let actVers: any = 0;
+    if (inData.ki_type in this.client.bpd.gv_parameters) {
+      const availVers = Object.keys(inData.send_msg).sort((a: any, b: any) => {
+        return (b - a);
       });
-      for (let i in avail_vers) {
-        if (avail_vers[i] in client.bpd.gv_parameters[in_data.ki_type]) {
-          act_vers = avail_vers[i];
+      for (const i in availVers) {
+        if (availVers[i] in this.client.bpd.gv_parameters[inData.ki_type]) {
+          actVers = availVers[i];
           break;
         }
       }
     }
-    if (act_vers == 0) {
-      this.error = new Exceptions.GVNotSupportedByKI(in_data.ki_type, client.bpd.gv_parameters[in_data.ki_type]);
+    if (actVers === 0) {
+      this.error = new Exceptions.GVNotSupportedByKI(inData.ki_type, this.client.bpd.gv_parameters[inData.ki_type]);
       return false;
     }
     // 2. Find the appropriate action
     let act = null;
-    if (typeof in_data.recv_msg === 'function') {
-      act = in_data.recv_msg;
-    } else if (act_vers in in_data.recv_msg) {
-      act = in_data.recv_msg[act_vers];
-    } else if (0 in in_data.recv_msg) {
-      act = in_data.recv_msg[0];
+    if (typeof inData.recv_msg === 'function') {
+      act = inData.recv_msg;
+    } else if (actVers in inData.recv_msg) {
+      act = inData.recv_msg[actVers];
+    } else if (0 in inData.recv_msg) {
+      act = inData.recv_msg[0];
     } else {
-      act = function () {};
+      act = () => {
+        // empty
+      };
     }
-    // 3. Prepare the Send Message object
-    int_send_msg.push({
-      version: act_vers,
-      segment: Helper.newSegFromArray(in_data.type, act_vers, in_data.send_msg[act_vers]),
-      action: act,
-      aufsetzpunkt: null,
-      aufsetzpunkt_loc: (in_data.aufsetzpunkt_loc ? in_data.aufsetzpunkt_loc : []),
-      finished: false,
-      collected_segments: [],
-      collected_messages: [],
-    });
-  };
 
-this.done = function (cb) {
+    // 3. Prepare the Send Message object
+    const sendMsg = new SendMessage();
+    sendMsg.action = act;
+    sendMsg.aufsetzpunktLoc = (inData.aufsetzpunkt_loc ? inData.aufsetzpunkt_loc : []);
+    sendMsg.segment = Helper.newSegFromArray(inData.type, actVers, inData.send_msg[actVers]);
+    sendMsg.version = actVers;
+    this.intSendMsg.push(sendMsg);
+  }
+
+  public done(cb) {
     // Exit CB is called when the function returns here it is checked if an error occures and then disconnects
-    let exit_cb = function (error, order, recvMsg) {
+    const extCb = (error, order, recvMsg) => {
       if (error) {
         this.client.MsgEndDialog(function (error2, recvMsg2) {
           if (error2) {
             this.client.log.con.error({
               error: error2,
-            },                        'Connection close failed after error.');
+            }, 'Connection close failed after error.');
           } else {
             this.client.log.con.debug('Connection closed okay, after error.');
           }
@@ -78,185 +79,184 @@ this.done = function (cb) {
     };
     // Main Part
     if (this.error) {
-      exit_cb(this.error, this, null);
+      extCb(this.error, this, null);
     } else {
       // Message prepare
-      let perform = function () {
-        let msg = new Nachricht(this.client.proto_version);
-        msg.sign({
-          pin: this.client.pin,
-          tan: NULL,
-          sys_id: this.client.sys_id,
-          pin_vers: this.client.upd.availible_tan_verfahren[0],
-          sig_id: this.client.getNewSigId(),
-        });
+      const perform = () => {
+        const msg = new Nachricht(this.client.proto_version);
+        const signInfo = new SignInfo();
+        signInfo.pin = this.client.pin;
+        signInfo.tan = NULL;
+        signInfo.sysId = this.client.sys_id;
+        signInfo.sigId = this.client.getNewSigId();
+
         msg.init(this.client.dialog_id, this.client.next_msg_nr, this.client.blz, this.client.kunden_id);
-        this.client.next_msg_nr++;
+        this.client.next_msg_nr += 1;
         // Fill in Segments
 
-        for (let j in int_send_msg) {
-          if (!int_send_msg[j].finished) {
-            // 1. Resolve Aufsetzpunkt if required, TODO here diferntiate between versions
-            if (int_send_msg[j].aufsetzpunkt) {
-              if (int_send_msg[j].aufsetzpunkt_loc.length >= 1) {
-                for (; int_send_msg[j].segment.store.data.length < int_send_msg[j].aufsetzpunkt_loc[0];) {
-                  int_send_msg[j].segment.store.addDE(NULL);
-                }
-                if (int_send_msg[j].aufsetzpunkt_loc.length <= 1) {
-                  // direkt
-                  int_send_msg[j].segment.store.data[int_send_msg[j].aufsetzpunkt_loc[0] - 1] = int_send_msg[j].aufsetzpunkt;
-                } else {
-                  // Unter DEG
-                  exit_cb(new Exceptions.InternalError('Aufsetzpunkt Location is in DEG not supported yet.'), this, null);
-                  return;
-                }
-              } else {
-                exit_cb(new Exceptions.InternalError('Aufsetzpunkt Location is not set but an aufsetzpunkt was delivered'), this, null);
+        for (const j in this.intSendMsg) {
+          const sendMessage: SendMessage = this.intSendMsg[j];
+
+          if (sendMessage.finished) {
+            continue;
+          }
+          // 1. Resolve Aufsetzpunkt if required, TODO here differentiate between versions
+          if (sendMessage.aufsetzpunkt) {
+            if (sendMessage.aufsetzpunktLoc.length >= 1) {
+              for (; sendMessage.segment.store.data.length < sendMessage.aufsetzpunktLoc[0];) {
+                sendMessage.segment.store.addDE(NULL);
+              }
+              if (sendMessage.aufsetzpunktLoc.length <= 1) {
+                // direkt
+                sendMessage.segment.store.data[sendMessage.aufsetzpunktLoc[0] - 1].data = sendMessage.aufsetzpunkt;
+                // Unter DEG
+                extCb(new Exceptions.InternalError('Aufsetzpunkt Location is in DEG not supported yet.'), this, null);
                 return;
               }
+            } else {
+              extCb(new Exceptions.InternalError('Aufsetzpunkt Location is not set but an aufsetzpunkt was delivered'), this, null);
+              return;
             }
-            // 2. Add Segment
-            msg.addSeg(int_send_msg[j].segment);
           }
+          // 2. Add Segment
+          msg.addSeg(sendMessage.segment);
         }
         // Send Segments to Destination
-        this.client.SendMsgToDestination(msg, function (error, recvMsg) {
+        this.client.SendMsgToDestination(msg, (error, recvMsg) => {
           if (error) {
-            exit_cb(error, this, null);
+            extCb(error, this, null);
           } else {
-            let got_aufsetzpunkt = false;
+            let gotAufsetzpunkt = false;
             // 1. global Message testen
-            let gmsg_exception = null;
+            let gmsgException = null;
             try {
-              let HIRMG = recvMsg.selectSegByName('HIRMG')[0];
-              for (let i in HIRMG.store.data) {
-                int_gmsg_list.push(HIRMG.store.data[i].data);
-                if (gmsg_exception == null && HIRMG.store.data[i].data[0].charAt(0) == '9') {
-                  gmsg_exception = new Exceptions.OrderFailedException(HIRMG.store.data[i].data);
+              const HIRMG = recvMsg.selectSegByName('HIRMG')[0];
+              for (const i in HIRMG.store.data) {
+                this.intGmsgList.push(HIRMG.store.data[i].data.data);
+                if (gmsgException == null && HIRMG.store.data[i].data.data[0].charAt(0) === '9') {
+                  gmsgException = new Exceptions.OrderFailedException(HIRMG.store.data[i].data.data);
                 }
               }
             } catch (ee) {
-              exit_cb(new Exceptions.MalformedMessageFormat('HIRMG is mandatory but missing.'), this, recvMsg);
+              extCb(new Exceptions.MalformedMessageFormat('HIRMG is mandatory but missing.'), this, recvMsg);
               return;
             }
-            if (gmsg_exception != null) {
-              exit_cb(gmsg_exception, this, recvMsg);
+            if (gmsgException != null) {
+              extCb(gmsgException, this, recvMsg);
               return;
             }
             // 2. einzelne Resp Segmente durchgehen
             try {
-              for (let j in int_send_msg) {
-                let related_segments = recvMsg.selectSegByBelongTo(int_send_msg[j].segment.nr);
-                int_send_msg[j].finished = true;
-                for (let i in related_segments) {
-                  if (related_segments[i].name == 'HIRMS') {
-                    let HIRMS = related_segments[i];
-                    for (let a in HIRMS.store.data) {
-                      int_send_msg[j].collected_messages.push(HIRMS.store.data[a].data);
-                      if (HIRMS.store.data[a].data[0] == '3040') {
-                        // Got an Aufsetzpunkt
-                        try {
-                          int_send_msg[j].aufsetzpunkt = HIRMS.store.data[a].data[3];
-                        } catch (eee) {
-                          int_send_msg[j].aufsetzpunkt = null;
-                        }
-                        int_send_msg[j].finished = false;
-                        got_aufsetzpunkt = true;
-                      }
-                    }
-                  } else {
-                    int_send_msg[j].collected_segments.push(related_segments[i]);
+              for (const j in this.intSendMsg) {
+                const sendMessage: SendMessage = this.intSendMsg[j];
+                const relatedSegments = recvMsg.selectSegByBelongTo(sendMessage.segment.nr);
+                sendMessage.finished = true;
+                relatedSegments.forEach(segment => {
+                  if (segment.name !== 'HIRMS') {
+                    sendMessage.collectedSegments.push(segment);
+                    return;
                   }
-                }
+
+                  const HIRMS = segment;
+                  HIRMS.store.data.forEach(deg => {
+                    sendMessage.collectedMessages.push(deg.data);
+                    if (deg.data.data[0] === '3040') {
+                      // Got an Aufsetzpunkt
+                      try {
+                        sendMessage.aufsetzpunkt = deg.data[3].data;
+                      } catch (eee) {
+                        sendMessage.aufsetzpunkt = null;
+                      }
+                      sendMessage.finished = false;
+                      gotAufsetzpunkt = true;
+                    }
+                  });
+
+                });
               }
             } catch (ee) {
-              exit_cb(new Exceptions.InternalError('Failed parsing Segments'), this, recvMsg);
+              extCb(new Exceptions.InternalError('Failed parsing Segments'), this, recvMsg);
             }
             // 3. check if we had an aufsetzpunkt
-            if (got_aufsetzpunkt) {
+            if (gotAufsetzpunkt) {
               perform();
             } else {
               // 4. Fertig die callbacks rufen
-              for (let j in int_send_msg) {
-                int_send_msg[j].action(int_send_msg[j].version, int_send_msg[j].collected_segments, int_send_msg[j].collected_messages, recvMsg);
-              }
-              exit_cb(null, this, recvMsg);
+              this.intSendMsg.forEach((sendMessage: SendMessage) => {
+                sendMessage.action(sendMessage.version, sendMessage.collectedSegments, sendMessage.collectedMessages, recvMsg);
+              });
+              extCb(null, this, recvMsg);
             }
           }
         });
       };
       perform();
     }
-  };
+  }
 
-this.checkMessagesOkay = function (messages, throw_when_error) {
-    for (let i in messages) {
-      let type = messages[i][0].charAt(0);
-      if (type == '9') {
-        if (throw_when_error) {
+  public checkMessagesOkay(messages, throwError) {
+    for (const i in messages) {
+      const type = messages[i][0].charAt(0);
+      if (type === '9') {
+        if (throwError) {
           Exceptions.GVFailedAtKI(messages[i]);
         }
         return false;
       }
     }
     return true;
-  };
+  }
 
-this.getSegByName = function (list, name) {
-    for (let i in list) {
-      if (list[i].name == name) {
-        return list[i];
-      }
+  public getSegByName(list: Segment[], name) {
+    const result = list.find(segment => segment.name === name);
+    if (!result) {
+      return null;
     }
-    return null;
-  };
+    return result;
+  }
 
-this.getElFromSeg = function (seg, nr, default_v) {
-    if (seg) {
-      let e = null;
-      try {
-        e = seg.getEl(nr);
-      } catch (e2) {
-        e = default_v;
-      }
-      return e;
-    } else {
-      return default_v;
+  public getElFromSeg(seg: Segment, nr, defaultValue) {
+    if (!seg) {
+      return defaultValue;
     }
-  };
+    let e = null;
+    try {
+      e = seg.getEl(nr);
+    } catch (e2) {
+      e = defaultValue;
+    }
+    return e;
+  }
 
-this.checkKITypeAvailible = function (ki_type, vers, return_param) {
-    if (ki_type in this.client.bpd.gv_parameters) {
-      let p_return = {};
-      let test_vers = [];
+  public checkKITypeAvailible = function (kiType, vers, returnParam) {
+    if (kiType in this.client.bpd.gv_parameters) {
+      const pReturn = {};
+      let testVers = [];
 
       if (vers instanceof Array) {
-        test_vers = test_vers.concat(vers);
+        testVers = testVers.concat(vers);
       } else {
-        test_vers.push(vers);
+        testVers.push(vers);
       }
 
-      for (let vindex in test_vers) {
-        if (test_vers[vindex] in this.client.bpd.gv_parameters[ki_type]) {
-          if (return_param) {
-            p_return[vindex] = this.client.bpd.gv_parameters[ki_type][test_vers[vindex]];
+      for (const vindex in testVers) {
+        if (testVers[vindex] in this.client.bpd.gv_parameters[kiType]) {
+          if (returnParam) {
+            pReturn[vindex] = this.client.bpd.gv_parameters[kiType][testVers[vindex]];
           } else {
             return true;
           }
         }
       }
 
-      if (return_param) {
-        return p_return;
-      } else {
-        return false;
+      if (returnParam) {
+        return pReturn;
       }
-    } else {
-      if (return_param) {
-        return {};
-      } else {
-        return false;
-      }
+      return false;
     }
+    if (returnParam) {
+      return {};
+    }
+    return false;
   };
 }

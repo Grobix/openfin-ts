@@ -6,4 +6,5 @@ export default class SignInfo {
   public kundenId: string;
   public server: string;
   public pinVersion: string;
+  public sigId: any;
 }
