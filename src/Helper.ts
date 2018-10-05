@@ -9,7 +9,7 @@ import { UmsatzTyp } from './UmsatzTyp';
 
 export default class Helper {
 
-  public static checkMsgsWithBelongToForId(msg: Nachricht, bez: string, id) {
+  public static checkMsgsWithBelongToForId(msg: Nachricht, bez: any, id) {
     const array = msg.selectSegByNameAndBelongTo('HIRMS', bez);
     if (array.length <= 0) {
       return null;

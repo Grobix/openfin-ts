@@ -9,4 +9,6 @@ export default class Konto {
   public currency: string = ''
   public kunde1Name: string = ''
   public productName: string = '';
+  public unterKonto: any;
+  public sepaData: any;
 }
