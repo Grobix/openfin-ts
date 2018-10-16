@@ -151,7 +151,7 @@ export default class Helper {
     }
   }
 
-  public static getJSDateFromSeg(seg, dateNr, timeNr) {
+  public static getJSDateFromSeg(seg, dateNr, timeNr?) {
     if (!seg) {
       return null;
     }

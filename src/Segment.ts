@@ -1,6 +1,7 @@
 import DatenElementGruppe from './DatenElementGruppe';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
+import DatenElement from './DatenElement';
 
 export default class Segment {
 
@@ -119,7 +120,7 @@ export default class Segment {
     }
   }
 
-  public getEl(nr: number) {
+  public getEl(nr: number): DatenElement | DatenElementGruppe {
     return this.store.data[nr - 1];
   }
 }

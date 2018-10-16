@@ -19,6 +19,9 @@
     "forin": false,
     "no-unused-variable": [
       true
-    ]
+    ],
+    "object-literal-sort-keys": false,
+    "no-console": false,
+    "no-duplicate-imports": false
   }
 }

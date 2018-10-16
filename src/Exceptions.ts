@@ -60,7 +60,7 @@ export namespace Exceptions {
 
   export class ConnectionFailedException extends OpenFinTSClientException {
     public host;
-    constructor(hostname: string) {
+    constructor(hostname: string, port?: string, path?: string) {
       super(hostname);
       this.host = hostname;
       Object.setPrototypeOf(this, ConnectionFailedException.prototype);
@@ -84,7 +84,7 @@ export namespace Exceptions {
 
   export class OutofSequenceMessageException extends OpenFinTSClientException {
     public blz;
-    constructor(blz: string) {
+    constructor(blz?: string) {
       super(blz);
       this.blz = blz;
       Object.setPrototypeOf(this, OutofSequenceMessageException.prototype);

@@ -14,4 +14,12 @@ export default class TanVerfahren {
   public auftragsstorno = false;
   public challengeClassReq = false;
   public challengeValueReq = false;
+  public zkaTanVerfahren: string;
+  public versZkaTanVerfahren: string;
+  public smsAbuKontoReq: string;
+  public auftragKonto: string;
+  public challengeStructured: boolean;
+  public initialisierungsMod: string;
+  public bezTanMedReq: string;
+  public anzSupportedTanVers: string;
 }

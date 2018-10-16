@@ -1,3 +1,8 @@
+import { Exceptions } from './Exceptions';
+import Helper from './Helper';
+import Nachricht from './Nachricht';
+import { NULL } from './NULL';
+import OrderHelperChain from './OrderHelperChain';
 import Segment from './Segment';
 import SendMessage from './SendMessage';
 import SignInfo from './SignInfo';
@@ -199,7 +204,7 @@ export default class Order {
       const type = messages[i][0].charAt(0);
       if (type === '9') {
         if (throwError) {
-          Exceptions.GVFailedAtKI(messages[i]);
+          throw new Exceptions.GVFailedAtKI(messages[i]);
         }
         return false;
       }
@@ -228,7 +233,7 @@ export default class Order {
     return e;
   }
 
-  public checkKITypeAvailible = function (kiType, vers, returnParam) {
+  public checkKITypeAvailible = function (kiType, vers, returnParam?) {
     if (kiType in this.client.bpd.gv_parameters) {
       const pReturn = {};
       let testVers = [];
@@ -259,4 +264,8 @@ export default class Order {
     }
     return false;
   };
+
+  public helper(): OrderHelperChain {
+    return new OrderHelperChain(this);
+  }
 }
