@@ -4,7 +4,7 @@ import { ParseError, Parser } from './Parser';
 
 export default class DatenElementGruppe {
 
-  public data: [DatenElement];
+  public data: DatenElement[] = [];
 
   public addDE(val) {
     this.data.push(new DatenElement(val, 1));
@@ -75,5 +75,19 @@ export default class DatenElementGruppe {
 
   public getEl(i) {
     return this.data[i - 1].data;
+  }
+
+  public getElasDEG(i): DatenElementGruppe {
+    return this.data[i - 1].data as DatenElementGruppe;
+  }
+
+  public getElasDE(i): DatenElement {
+    return this.data[i - 1].data as DatenElement;
+  }
+
+  public getElString(i): string {
+    if (this.data[i - 1] instanceof DatenElement) {
+      return this.data[i - 1].data as string;
+    }
   }
 }

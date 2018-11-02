@@ -52,6 +52,7 @@ export default class Segment {
     if (parser.gotoNextValidChar(':')) {
       this.name = parser.getTextFromMarkerToCurrentPos('start');
     } else {
+
       throw new ParseError('Seg', 'Segmentkennung Fehlt!', startPos);
     }
 
@@ -122,5 +123,9 @@ export default class Segment {
 
   public getEl(nr: number): DatenElement | DatenElementGruppe {
     return this.store.data[nr - 1];
+  }
+
+  public getElString(nr: number): string {
+    return this.store.data[nr - 1].data as string;
   }
 }

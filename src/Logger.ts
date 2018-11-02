@@ -20,5 +20,5 @@ export default class Logger {
     streams: [],
   });
 
-  private static loggerMap: {[area: string]: any};
+  private static loggerMap: {[area: string]: any} = {};
 }

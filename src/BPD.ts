@@ -8,7 +8,7 @@ export default class BPD {
   public url = '';
   public pin = new Pin();
   public tan = new Tan();
-  public gvParameters: {};
+  public gvParameters = {};
 
   public clone(): BPD {
     return JSON.parse(JSON.stringify(this));

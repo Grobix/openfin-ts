@@ -9,7 +9,7 @@ export default class Nachricht {
   public segments: Segment[] = [];
   public segmentsCounter = 0;
   public signIt: SignInfo = null;
-  public hnvsk = null;
+  public hnvsk: Segment = null;
   public messageNumber = 0;
 
   constructor(public protoVersion) {
@@ -111,8 +111,8 @@ export default class Nachricht {
       // Neue Segmente hinzufügen
       this.segments = [];
       this.segments.push(first);
-      if ((this.hnvsk.vers === '3' && this.hnvsk.getEl(1).getEl(1) === 'PIN') || (this.hnvsk.vers === '2' && this.hnvsk.getEl(1) === '998')) {
-        const parser2 = new Parser(segHNVSD.getEl(1).data as string);
+      if ((this.hnvsk.version === '3' && this.hnvsk.getEl(1).data.getEl(1) === 'PIN') || (this.hnvsk.version === '2' && this.hnvsk.getElString(1) === '998')) {
+        const parser2 = new Parser(segHNVSD.getEl(1).data);
         while (parser2.hasNext()) {
           const segm2 = new Segment();
           segm2.parse(parser2);

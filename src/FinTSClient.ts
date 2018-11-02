@@ -51,6 +51,13 @@ import UPD from './UPD';
 
 export default class FinTSClient {
 
+  public dialogId = 0;
+  public nextMsgNr = 1;
+  public sysId = 0;
+  public protoVersion = 300;
+  public bpd: BPD = new BPD();
+  public upd: UPD = new UPD();
+
   private bankenliste: { [index: string]: Bank };
   private log = Logger.getLogger('main');
   private conLog = Logger.getLogger('con');
@@ -60,17 +67,11 @@ export default class FinTSClient {
   private tan = NULL;
   private debugMode = false;
 
-  private dialogId = 0;
-  private nextMsgNr = 1;
   private clientName = 'Open-FinTS-JS-Client';
   private clientVersion = 4;
-  private protoVersion = 300;
   private inConnection = false;
 
-  private sysId = 0;
   private lastSignaturId = 1;
-  private bpd: BPD = new BPD();
-  private upd: UPD = new UPD();
   private konten: Konto[] = [];
 
   constructor(public blz: string, public kundenId: string,
@@ -121,6 +122,84 @@ export default class FinTSClient {
     return this.kundenId === '9999999999';
   }
 
+  public sendMsgToDestination = (msg, callback, inFinishing?) => { // Parameter für den Callback sind error,data
+    // Ensure the sequence of messages!
+    if (!inFinishing) {
+      if (this.inConnection) {
+        throw new Exceptions.OutofSequenceMessageException();
+      }
+      this.inConnection = true;
+    }
+    const intCallback = (param1, param2) => {
+      if (!inFinishing) {
+        this.inConnection = false;
+      }
+      callback(param1, param2);
+    };
+    const txt = msg.transformForSend();
+    this.debugLogMsg(txt, true);
+    const postData = new Buffer(txt).toString('base64');
+    const u = url.parse(this.bpd.url);
+    const options = {
+      hostname: u.hostname,
+      port: u.port,
+      path: u.path,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        'Content-Length': postData.length,
+      },
+    };
+    let data = '';
+    const prot = u.protocol === 'http:' ? http : https;
+    this.conLog.debug({
+      host: u.hostname,
+      port: u.port,
+      path: u.path,
+    }, 'Connect to Host');
+
+    const connectionCallback = (res) => { // https.request(options, function(res) {
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        // Hir wird dann weiter gemacht :)
+        this.conLog.debug({
+          host: u.hostname,
+          port: u.port,
+          path: u.path,
+        }, 'Request finished');
+        const clearTxt = encoding.convert(new Buffer(data, 'base64'), 'UTF-8', 'ISO-8859-1').toString('utf8'); // TODO: this only applies for HBCI? can we dynamically figure out the charset?
+
+        this.debugLogMsg(clearTxt, false);
+        try {
+          const msgRecV = new Nachricht(this.protoVersion);
+          msgRecV.parse(clearTxt);
+          intCallback(null, msgRecV);
+        } catch (e) {
+          this.conLog.error(e, 'Could not parse received Message');
+          intCallback(e.toString(), null);
+        }
+      });
+    };
+
+    const req: ClientRequest = u.protocol === 'http:' ?
+      http.request(options, connectionCallback) :
+      https.request(options, connectionCallback);
+
+    req.on('error', () => {
+      // Hier wird dann weiter gemacht :)
+      this.conLog.error({
+        host: u.hostname,
+        port: u.port,
+        path: u.path,
+      }, 'Could not connect to ' + options.hostname);
+      intCallback(new Exceptions.ConnectionFailedException(u.hostname, u.port, u.path), null);
+    });
+    req.write(postData);
+    req.end();
+  }
+
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
     if (!this.isAnonymous()) {
@@ -159,26 +238,26 @@ export default class FinTSClient {
         try {
           cb(error, recvMsg, false);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKVVB',
           }, 'Unhandled callback Error in HKVVB,HKIDN');
         }
       } else {
         // Prüfen ob Erfolgreich
-        let HIRMG = null;
+        let HIRMG: Segment = null;
         try {
           HIRMG = recvMsg.selectSegByName('HIRMG')[0];
         } catch (e) {
           // nothing
         }
-        if (HIRMG !== null && (HIRMG.getEl(1).getEl(1) === '0010' || HIRMG.getEl(1).getEl(1) === '3060')) {
+        if (HIRMG !== null && (HIRMG.getEl(1).data.getElString(1) === '0010' || HIRMG.getEl(1).data.getElString(1) === '3060')) {
           if (Helper.checkMsgsWithBelongToForId(recvMsg, HKVVB.nr, '0020')) {
             try {
               // 1. Dialog ID zuweisen
-              this.dialogId = recvMsg.selectSegByName('HNHBK')[0].getEl(3);
+              this.dialogId = recvMsg.selectSegByName('HNHBK')[0].getEl(3).data;
               // 2. System Id
               if (!this.isAnonymous() && this.sysId === 0) {
-                this.sysId = recvMsg.selectSegByNameAndBelongTo('HISYN', syn)[0].getEl(1);
+                this.sysId = recvMsg.selectSegByNameAndBelongTo('HISYN', syn)[0].getEl(1).data;
               }
               // 3. Möglicherweise neue kommunikationsdaten
               let HIKOM = recvMsg.selectSegByName('HIKOM');
@@ -189,8 +268,8 @@ export default class FinTSClient {
                   // There can be up to 9 Kommunikationsparameter
                   //  however we check only if the first one which is HTTP (3)
                   // 	is different to the one we used before, according to the spec we should try reconnecting all 9
-                  if (HIKOM.store.data[i].getEl(1) === '3') {
-                    newUrl = (Helper.convertFromToJSText(HIKOM.store.data[i].getEl(2)));
+                  if (HIKOM.getEl(i + 1).data.getEl(1) === '3') {
+                    newUrl = (Helper.convertFromToJSText(HIKOM.getEl(i + 1).data.getEl(2)));
                     if (newUrl.indexOf('http') !== 0) {
                       newUrl = 'https://' + newUrl;
                     }
@@ -207,16 +286,16 @@ export default class FinTSClient {
                 const kontoList = recvMsg.selectSegByName('HIUPD');
                 kontoList.forEach(kontodata => {
                   const konto = new Konto();
-                  konto.iban = kontodata.getEl(2);
-                  konto.kontoNr = kontodata.getEl(1).getEl(1);
-                  konto.unterKonto = kontodata.getEl(1).getEl(2);
-                  konto.countryCode = kontodata.getEl(1).getEl(3);
-                  konto.blz = kontodata.getEl(1).getEl(4);
-                  konto.kundenId = kontodata.getEl(3);
-                  konto.kontoart = kontodata.getEl(4);
-                  konto.currency = kontodata.getEl(5);
-                  konto.kunde1Name = kontodata.getEl(6);
-                  konto.productName = kontodata.getEl(8);
+                  konto.iban = kontodata.getEl(2).data;
+                  konto.kontoNr = kontodata.getEl(1).data.getEl(1);
+                  konto.unterKonto = kontodata.getEl(1).data.getEl(2);
+                  konto.countryCode = kontodata.getEl(1).data.getEl(3);
+                  konto.blz = kontodata.getEl(1).data.getEl(4);
+                  konto.kundenId = kontodata.getEl(3).data;
+                  konto.kontoart = kontodata.getEl(4).data;
+                  konto.currency = kontodata.getEl(5).data;
+                  konto.kunde1Name = kontodata.getEl(6).data;
+                  konto.productName = kontodata.getEl(8).data;
                   konto.sepaData = null;
                   this.konten.push(konto);
                 });
@@ -225,13 +304,13 @@ export default class FinTSClient {
               try {
                 // 5.1 Vers
                 const HIBPA = recvMsg.selectSegByName('HIBPA')[0];
-                this.bpd.versBpd = HIBPA.getEl(1);
+                this.bpd.versBpd = HIBPA.getEl(1).data;
                 // 5.2 sonst
-                this.bpd.bankName = HIBPA.getEl(3);
-                this.bpd.supportedVers = Helper.convertIntoArray(HIBPA.getEl(6));
+                this.bpd.bankName = HIBPA.getEl(3).data;
+                this.bpd.supportedVers = Helper.convertIntoArray(HIBPA.getEl(6).data);
                 this.bpd.url = newUrl;
               } catch (ee) {
-                this.log.gv.error(ee, {
+                this.gvLog.error(ee, {
                   gv: 'HIBPA',
                 }, 'Error while analyse BPD');
               }
@@ -324,31 +403,31 @@ export default class FinTSClient {
                   }
                 }
               } catch (ee) {
-                this.log.gv.error(ee, {
+                this.gvLog.error(ee, {
                   gv: 'HITANS',
                 }, 'Error while analyse HITANS');
               }
               // 6. Analysiere UPD
               try {
                 const HIUPA = recvMsg.selectSegByName('HIUPA')[0];
-                this.upd.versUpd = HIUPA.getEl(3);
-                this.upd.geschaeftsVorgGesp = HIUPA.getEl(4) === '0'; // UPD-Verwendung
+                this.upd.versUpd = HIUPA.getEl(3).data;
+                this.upd.geschaeftsVorgGesp = HIUPA.getEl(4).data === '0'; // UPD-Verwendung
               } catch (ee) {
-                this.log.gv.error(ee, {
+                this.gvLog.error(ee, {
                   gv: 'HIUPA',
                 }, 'Error while analyse UPD');
               }
               // 7. Analysiere Verfügbare Tan Verfahren
               try {
-                const hirmsForTanV = recvMsg.selectSegByNameAndBelongTo('HIRMS', HKVVB.nr)[0];
+                const hirmsForTanV: Segment = recvMsg.selectSegByNameAndBelongTo('HIRMS', HKVVB.nr)[0];
                 for (let i = 0; i !== hirmsForTanV.store.data.length; i += 1) {
-                  if (hirmsForTanV.store.data[i].getEl(1) === '3920') {
+                  if (hirmsForTanV.store.data[i].data.getEl(1) === '3920') {
                     this.upd.availableTanVerfahren = [];
                     for (let a = 3; a < hirmsForTanV.store.data[i].data.length; a += 1) {
                       this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data[a]);
                     }
                     if (this.upd.availableTanVerfahren.length > 0) {
-                      this.log.gv.info({
+                      this.gvLog.info({
                         gv: 'HKVVB',
                       }, 'Update to use Tan procedure: ' + this.upd.availableTanVerfahren[0]);
                     }
@@ -356,7 +435,7 @@ export default class FinTSClient {
                   }
                 }
               } catch (ee) {
-                this.log.gv.error(ee, {
+                this.gvLog.error(ee, {
                   gv: 'HKVVB',
                 }, 'Error while analyse HKVVB result Tan Verfahren');
               }
@@ -372,37 +451,37 @@ export default class FinTSClient {
                   }
                 }
               } catch (ee) {
-                this.log.gv.error(ee, {
+                this.gvLog.error(ee, {
                   gv: 'HKVVB',
                 }, 'Error while analyse HKVVB result Tan Verfahren');
               }
               try {
                 cb(error, recvMsg, hasNewUrl);
               } catch (cbError) {
-                this.log.gv.error(cbError, {
+                this.gvLog.error(cbError, {
                   gv: 'HKVVB',
                 }, 'Unhandled callback Error in HKVVB,HKIDN');
               }
             } catch (e) {
-              this.log.gv.error(e, {
+              this.gvLog.error(e, {
                 gv: 'HKVVB',
               }, 'Error while analyse HKVVB Response');
               try {
                 cb(e.toString(), null, false);
               } catch (cbError) {
-                this.log.gv.error(cbError, {
+                this.gvLog.error(cbError, {
                   gv: 'HKVVB',
                 }, 'Unhandled callback Error in HKVVB,HKIDN');
               }
             }
           } else {
-            this.log.gv.error({
+            this.gvLog.error({
               gv: 'HKVVB',
             }, 'Error while analyse HKVVB Response No Init Successful recv.');
             try {
               cb('Keine Initialisierung Erfolgreich Nachricht erhalten!', recvMsg, false);
             } catch (cbError) {
-              this.log.gv.error(cbError, {
+              this.gvLog.error(cbError, {
                 gv: 'HKVVB',
               }, 'Unhandled callback Error in HKVVB,HKIDN');
             }
@@ -418,26 +497,26 @@ export default class FinTSClient {
              Helper.checkMsgsWithBelongToForId(recvMsg,HKIDN.nr,"9010")){
              try{
                // 1. Benutzer nicht bekannt bzw. Pin falsch
-               this.log.gv.error({gv:"HKVVB",hirmsg:HIRMG},"User not known or wrong pin");
+               this.gvLog.error({gv:"HKVVB",hirmsg:HIRMG},"User not known or wrong pin");
                throw new Exceptions.WrongUserOrPinError();
              }catch(er_thrown){
                try{
                  cb(er_thrown,recvMsg,false);
                }catch(cbError){
-                 this.log.gv.error(cbError,{gv:"HKVVB"},"Unhandled callback Error in HKVVB,HKIDN");
+                 this.gvLog.error(cbError,{gv:"HKVVB"},"Unhandled callback Error in HKVVB,HKIDN");
                }
              }
           }else{ */
 
           // anderer Fehler
-          this.log.gv.error({
+          this.gvLog.error({
             gv: 'HKVVB',
             hirmsg: HIRMG,
           }, 'Error while analyse HKVVB Response Wrong HIRMG response code');
           try {
-            cb('Fehlerhafter Rückmeldungscode: ' + (HIRMG === null ? 'keiner' : HIRMG.getEl(1).getEl(3)), recvMsg, false);
+            cb('Fehlerhafter Rückmeldungscode: ' + (HIRMG === null ? 'keiner' : HIRMG.getEl(1).data.getEl(3)), recvMsg, false);
           } catch (cbError) {
-            this.log.gv.error(cbError, {
+            this.gvLog.error(cbError, {
               gv: 'HKVVB',
             }, 'Unhandled callback Error in HKVVB,HKIDN');
           }
@@ -447,35 +526,9 @@ export default class FinTSClient {
     });
   }
 
-  private beautifyBPD(bpd: BPD) {
-    const cbpd = bpd.clone();
-    cbpd.gvParameters = '...';
-    return cbpd;
-  }
-
-  private msgCheckAndEndDialog = function (recvMsg, cb) {
-    const hirmgS = recvMsg.selectSegByName('HIRMG');
-    for (const k in hirmgS) {
-      for (const i in (hirmgS[k].store.data)) {
-        const ermsg = hirmgS[k].store.data[i].getEl(1);
-        if (ermsg === '9800') {
-          try {
-            cb(null, null);
-          } catch (cbError) {
-            this.log.gv.error(cbError, {
-              gv: 'HKEND',
-            }, 'Unhandled callback Error in HKEND');
-          }
-          return;
-        }
-      }
-    }
-    this.msgEndDialog(cb);
-  };
-
-  private msgEndDialog = function (cb) {
+  public msgEndDialog = (cb) => {
     const msg = new Nachricht(this.protoVersion);
-    if (this.kundenId !== 9999999999) {
+    if (this.kundenId !== '9999999999') {
       const signInfo = new SignInfo();
       signInfo.pin = this.pin;
       signInfo.tan = NULL;
@@ -487,9 +540,9 @@ export default class FinTSClient {
     msg.init(this.dialogId, this.nextMsgNr, this.blz, this.kundenId);
     this.nextMsgNr += 1;
     msg.addSeg(Helper.newSegFromArray('HKEND', 1, [this.dialogId]));
-    this.sendMsgToDestination(msg, function (error, recvMsg) {
+    this.sendMsgToDestination(msg, (error, recvMsg) => {
       if (error) {
-        this.log.gv.error(error, {
+        this.gvLog.error(error, {
           msg,
           gv: 'HKEND',
         }, 'HKEND could not be send');
@@ -497,15 +550,41 @@ export default class FinTSClient {
       try {
         cb(error, recvMsg);
       } catch (cbError) {
-        this.log.gv.error(cbError, {
+        this.gvLog.error(cbError, {
           gv: 'HKEND',
         }, 'Unhandled callback Error in HKEND');
       }
     }, true);
-  };
+  }
+
+  private beautifyBPD(bpd: BPD) {
+    const cbpd = bpd.clone();
+    cbpd.gvParameters = '...';
+    return cbpd;
+  }
+
+  private msgCheckAndEndDialog = (recvMsg, cb) => {
+    const hirmgS = recvMsg.selectSegByName('HIRMG');
+    for (const k in hirmgS) {
+      for (const i in (hirmgS[k].store.data)) {
+        const ermsg = hirmgS[k].store.data[i].getEl(1);
+        if (ermsg === '9800') {
+          try {
+            cb(null, null);
+          } catch (cbError) {
+            this.gvLog.error(cbError, {
+              gv: 'HKEND',
+            }, 'Unhandled callback Error in HKEND');
+          }
+          return;
+        }
+      }
+    }
+    this.msgEndDialog(cb);
+  }
 
   // SEPA kontoverbindung anfordern HKSPA, HISPA ist die antwort
-  private msgRequestSepa = function (forKonto, cb) {
+  private msgRequestSepa = (forKonto, cb) => {
     // Vars
     let processed = false;
     let v1 = null;
@@ -532,7 +611,7 @@ export default class FinTSClient {
         2: v1,
         3: v1,
       },
-      recv_msg: reqSepaOrder.helper().vers([1, 2, 3], function (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) {
+      recv_msg: reqSepaOrder.helper().vers([1, 2, 3], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
         try {
           if (reqSepaOrder.checkMessagesOkay(relatedRespMsgs, true)) {
             const HISPA = reqSepaOrder.getSegByName(relatedRespSegments, 'HISPA');
@@ -540,19 +619,19 @@ export default class FinTSClient {
               for (let i = 0; i !== HISPA.store.data.length; i += 1) {
                 const verb = HISPA.getEl(i + 1) as DatenElementGruppe;
                 const o = new Konto();
-                o.isSepa = verb.getEl(1) === 'J';
-                o.iban = verb.getEl(2);
-                o.bic = verb.getEl(3);
-                o.kontoNr = verb.getEl(4);
-                o.unterKonto = verb.getEl(5);
-                o.countryCode = verb.getEl(6);
-                o.blz = verb.getEl(7);
+                o.isSepa = verb.getEl(1).data === 'J';
+                o.iban = verb.getEl(2).data;
+                o.bic = verb.getEl(3).data;
+                o.kontoNr = verb.getEl(4).data;
+                o.unterKonto = verb.getEl(5).data;
+                o.countryCode = verb.getEl(6).data;
+                o.blz = verb.getEl(7).data;
                 sepaList.push(o);
               }
               try {
                 cb(null, recvMsg, sepaList);
               } catch (cbError) {
-                this.log.gv.error(cbError, {
+                this.gvLog.error(cbError, {
                   gv: 'HKSPA',
                 }, 'Unhandled callback Error in HKSPA');
               }
@@ -561,7 +640,7 @@ export default class FinTSClient {
             }
           }
         } catch (e) {
-          this.log.gv.error(e, {
+          this.gvLog.error(e, {
             gv: 'HKSPA',
             msgs: relatedRespMsgs,
             segments: relatedRespSegments,
@@ -569,7 +648,7 @@ export default class FinTSClient {
           try {
             cb(e, null, null);
           } catch (cbError) {
-            this.log.gv.error(cbError, {
+            this.gvLog.error(cbError, {
               gv: 'HKSPA',
             }, 'Unhandled callback Error in HKSPA');
           }
@@ -577,35 +656,35 @@ export default class FinTSClient {
         processed = true;
       }).done(),
     });
-    reqSepaOrder.done(function (error, order, recvMsg) {
+    reqSepaOrder.done((error, order, recvMsg) => {
       if (error && !processed) {
-        this.log.gv.error(error, {
+        this.gvLog.error(error, {
           recvMsg,
           gv: 'HKSPA',
         }, 'Exception while parsing HKSPA');
         try {
           cb(error, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKSPA',
           }, 'Unhandled callback Error in HKSPA');
         }
       } else if (!processed) {
         const ex = new Exceptions.InternalError('HKSPA response was not analysied');
-        this.log.gv.error(ex, {
+        this.gvLog.error(ex, {
           recvMsg,
           gv: 'HKSPA',
         }, 'HKSPA response was not analysied');
         try {
           cb(ex, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKSPA',
           }, 'Unhandled callback Error in HKSPA');
         }
       }
     });
-  };
+  }
 
   /*
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
@@ -634,7 +713,7 @@ export default class FinTSClient {
     }
     // Start
     const reqUmsatz = new Order(this);
-    const recv = function (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) {
+    const recv = (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
       try {
         if (reqUmsatz.checkMessagesOkay(relatedRespMsgs, true)) {
           // Erfolgreich Meldung
@@ -652,13 +731,13 @@ export default class FinTSClient {
           try {
             cb(null, recvMsg, umsatze);
           } catch (cbError) {
-            this.log.gv.error(cbError, {
+            this.gvLog.error(cbError, {
               gv: 'HKKAZ',
             }, 'Unhandled callback Error in HKKAZ');
           }
         }
       } catch (ee) {
-        this.log.gv.error(ee, {
+        this.gvLog.error(ee, {
           gv: 'HKKAZ',
           resp_msg: recvMsg,
         }, 'Exception while parsing HKKAZ response');
@@ -666,7 +745,7 @@ export default class FinTSClient {
         try {
           cb(ee, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKKAZ',
           }, 'Unhandled callback Error in HKKAZ');
         }
@@ -687,9 +766,9 @@ export default class FinTSClient {
         5: recv,
       },
     });
-    reqUmsatz.done(function (error, order, recvMsg) {
+    reqUmsatz.done((error, order, recvMsg) => {
       if (error && !processed) {
-        this.log.gv.error(error, {
+        this.gvLog.error(error, {
           recvMsg,
           gv: 'HKKAZ',
         }, 'HKKAZ could not be send');
@@ -697,13 +776,13 @@ export default class FinTSClient {
         try {
           cb(error, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKKAZ',
           }, 'Unhandled callback Error in HKKAZ');
         }
       } else if (!processed) {
         const ex = new Exceptions.InternalError('HKKAZ response was not analysied');
-        this.log.gv.error(ex, {
+        this.gvLog.error(ex, {
           recvMsg,
           gv: 'HKKAZ',
         }, 'HKKAZ response was not analysied');
@@ -711,7 +790,7 @@ export default class FinTSClient {
         try {
           cb(ex, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKKAZ',
           }, 'Unhandled callback Error in HKKAZ');
         }
@@ -754,7 +833,7 @@ export default class FinTSClient {
       type: 'HKSAL',
       ki_type: 'HISAL',
       send_msg: availSendMsg,
-      recv_msg: reqSaldo.helper().vers([5, 6, 7], function (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) {
+      recv_msg: reqSaldo.helper().vers([5, 6, 7], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
         try {
           if (reqSaldo.checkMessagesOkay(relatedRespMsgs, true)) {
             const HISAL = reqSaldo.getSegByName(relatedRespSegments, 'HISAL');
@@ -780,7 +859,7 @@ export default class FinTSClient {
                 }
                 cb(null, recvMsg, result);
               } catch (cbError) {
-                this.log.gv.error(cbError, {
+                this.gvLog.error(cbError, {
                   gv: 'HKSAL',
                 }, 'Unhandeled callback Error in HKSAL');
               }
@@ -789,7 +868,7 @@ export default class FinTSClient {
             }
           }
         } catch (e) {
-          this.log.gv.error(e, {
+          this.gvLog.error(e, {
             gv: 'HKSAL',
             msgs: relatedRespMsgs,
             segments: relatedRespSegments,
@@ -797,7 +876,7 @@ export default class FinTSClient {
           try {
             cb(e, null, null);
           } catch (cbError) {
-            this.log.gv.error(cbError, {
+            this.gvLog.error(cbError, {
               gv: 'HKSAL',
             }, 'Unhandeled callback Error in HKSAL');
           }
@@ -805,29 +884,29 @@ export default class FinTSClient {
         processed = true;
       }).done(),
     });
-    reqSaldo.done(function (error, order, recvMsg) {
+    reqSaldo.done((error, order, recvMsg) => {
       if (error && !processed) {
-        this.log.gv.error(error, {
+        this.gvLog.error(error, {
           recvMsg,
           gv: 'HKSAL',
         }, 'Exception while parsing HKSAL');
         try {
           cb(error, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKSAL',
           }, 'Unhandeled callback Error in HKSAL');
         }
       } else if (!processed) {
         const ex = new Exceptions.InternalError('HKSAL response was not analysed');
-        this.log.gv.error(ex, {
+        this.gvLog.error(ex, {
           recvMsg,
           gv: 'HKSAL',
         }, 'HKSAL response was not analysed');
         try {
           cb(ex, recvMsg, null);
         } catch (cbError) {
-          this.log.gv.error(cbError, {
+          this.gvLog.error(cbError, {
             gv: 'HKSAL',
           }, 'Unhandled callback Error in HKSAL');
         }
@@ -835,7 +914,7 @@ export default class FinTSClient {
     });
   }
 
-  private establishConnection = function (cb) {
+  private establishConnection = (cb) => {
     let protocolSwitch = false;
     let versStep = 1;
     const originalBpd = this.bpd.clone();
@@ -845,17 +924,17 @@ export default class FinTSClient {
     // 1. Normale Verbindung herstellen um BPD zu bekommen und evtl. wechselnde URL ( 1.versVersuch FinTS 2. versVersuch HBCI2.2 )
     // 2. Verbindung mit richtiger URL um auf jeden Fall (auch bei geänderter URL) die richtigen BPD zu laden + Tan Verfahren herauszufinden
     // 3. Abschließende Verbindung aufbauen
-    const performStep = function (step) {
-      this.msgInitDialog(function (error, recvMsg, hastNeuUrl) {
+    const performStep = (step) => {
+      this.msgInitDialog((error, recvMsg, hastNeuUrl) => {
         if (error) {
-          this.MsgCheckAndEndDialog(recvMsg, function (error2, recvMsg2) {
+          this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
             if (error2) {
-              this.log.conest.error({
+              this.conEstLog.error({
                 step,
                 error: error2,
               }, 'Connection close failed.');
             } else {
-              this.log.conest.debug({
+              this.conEstLog.debug({
                 step,
               }, 'Connection closed okay.');
             }
@@ -870,7 +949,7 @@ export default class FinTSClient {
           const HIRMS = recvMsg.selectSegByNameAndBelongTo('HIRMS', 1)[0];
           if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).getEl(1) === '9120' && HIRMS.getEl(1).getEl(2) === '3') {
             // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
-            this.log.conest.debug({
+            this.conEstLog.debug({
               step,
               hirms: HIRMS,
             }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
@@ -881,51 +960,51 @@ export default class FinTSClient {
             performStep(1);
           } else {
             // Anderer Fehler
-            this.log.conest.error({
+            this.conEstLog.error({
               step,
               error,
             }, 'Init Dialog failed: ' + error);
             try {
               cb(error);
             } catch (cbError) {
-              this.log.conest.error(cbError, {
+              this.conEstLog.error(cbError, {
                 step,
               }, 'Unhandled callback Error in EstablishConnection');
             }
           }
         } else {
           // Erfolgreich Init Msg verschickt
-          this.log.conest.debug({
+          this.conEstLog.debug({
             step,
             bpd: this.beautifyBPD(this.bpd),
             upd: this.upd,
             url: this.bpd.url,
-            new_sig_method: this.upd.availible_tan_verfahren[0],
+            new_sig_method: this.upd.availableTanVerfahren[0],
           }, 'Init Dialog successful.');
           if (step === 1 || step === 2) {
             // Im Step 1 und 2 bleiben keine Verbindungen erhalten
             // Diese Verbindung auf jeden Fall beenden
             const neuUrl = this.bpd.url;
-            const neuSigMethod = this.upd.availible_tan_verfahren[0];
+            const neuSigMethod = this.upd.availableTanVerfahren[0];
             this.bpd = originalBpd.clone();
             this.upd = originalUpd.clone();
             const origSysId = this.sysId;
             const origLastSig = this.lastSignaturId;
-            this.MsgCheckAndEndDialog(recvMsg, function (error2, recvMsg2) {
+            this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
               if (error2) {
-                this.log.conest.error({
+                this.conEstLog.error({
                   step,
                   error: error2,
                 }, 'Connection close failed.');
               } else {
-                this.log.conest.debug({
+                this.conEstLog.debug({
                   step,
                 }, 'Connection closed okay.');
               }
             });
             this.clear();
             this.bpd.url = neuUrl;
-            this.upd.availible_tan_verfahren[0] = neuSigMethod;
+            this.upd.availableTanVerfahren[0] = neuSigMethod;
             this.sysId = origSysId;
             this.lastSignaturId = origLastSig;
             originalBpd.url = this.bpd.url;
@@ -935,7 +1014,7 @@ export default class FinTSClient {
           if (hastNeuUrl) {
             if (step === 1) {
               // Im Step 1 ist das eingeplant, dass sich die URL ändert
-              this.log.conest.debug({
+              this.conEstLog.debug({
                 step: 2,
               }, 'Start Connection in Step 2');
               performStep(2);
@@ -944,56 +1023,56 @@ export default class FinTSClient {
               if (step === 3) {
                 this.bpd = originalBpd.clone();
                 this.upd = originalUpd.clone();
-                this.MsgCheckAndEndDialog(recvMsg, function (error2, recvMsg2) {
+                this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
                   if (error2) {
-                    this.log.conest.error({
+                    this.conEstLog.error({
                       step,
                       error: error2,
                     }, 'Connection close failed.');
                   } else {
-                    this.log.conest.debug({
+                    this.conEstLog.debug({
                       step,
                     }, 'Connection closed okay.');
                   }
                 });
               }
-              this.log.conest.error({
+              this.conEstLog.error({
                 step,
               }, 'Multiple URL changes are not supported!');
               // Callback
               try {
                 cb('Mehrfachänderung der URL ist nicht unterstützt!');
               } catch (cbError) {
-                this.log.conest.error(cbError, {
+                this.conEstLog.error(cbError, {
                   step,
                 }, 'Unhandled callback Error in EstablishConnection');
               }
             }
           } else if (step === 1 || step === 2) {
             // 3: eigentliche Verbindung aufbauen
-            this.log.conest.debug({
+            this.conEstLog.debug({
               step: 3,
             }, 'Start Connection in Step 3');
             performStep(3);
           } else {
             // Ende Schritt 3 = Verbindung Ready
-            this.log.conest.debug({
+            this.conEstLog.debug({
               step,
             }, 'Connection entirely established. Now get the available accounts.');
             // 4. Bekomme noch mehr Details zu den Konten über HKSPA
-            this.MsgRequestSepa(null, function (error4, recvMsg2, sepaList: Konto[]) {
+            this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
               if (error4) {
-                this.log.conest.error({
+                this.conEstLog.error({
                   step,
                 }, 'Error getting the available accounts.');
-                this.MsgCheckAndEndDialog(recvMsg, function (error3) {
+                this.msgCheckAndEndDialog(recvMsg, (error3) => {
                   if (error3) {
-                    this.log.conest.error({
+                    this.conEstLog.error({
                       step,
                       error: error3,
                     }, 'Connection close failed.');
                   } else {
-                    this.log.conest.debug({
+                    this.conEstLog.debug({
                       step,
                     }, 'Connection closed okay.');
                   }
@@ -1002,7 +1081,7 @@ export default class FinTSClient {
                 try {
                   cb(error4);
                 } catch (cbError) {
-                  this.log.conest.error(cbError, {
+                  this.conEstLog.error(cbError, {
                     step,
                   }, 'Unhandled callback Error in EstablishConnection');
                 }
@@ -1010,15 +1089,15 @@ export default class FinTSClient {
                 // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
                 for (let i = 0; i !== sepaList.length; i += 1) {
                   for (let j = 0; j !== this.konten.length; j += 1) {
-                    if (this.konten[j].konto_nr === sepaList[i].kontoNr &&
-                      this.konten[j].unter_konto === sepaList[i].unterKonto) {
-                      this.konten[j].sepa_data = sepaList[i];
+                    if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
+                      this.konten[j].unterKonto === sepaList[i].unterKonto) {
+                      this.konten[j].sepaData = sepaList[i];
                       break;
                     }
                   }
                 }
                 // Fertig
-                this.log.conest.debug({
+                this.conEstLog.debug({
                   step,
                   recv_sepa_list: sepaList,
                 }, 'Connection entirely established and got available accounts. Return.');
@@ -1026,7 +1105,7 @@ export default class FinTSClient {
                 try {
                   cb(null);
                 } catch (cbError) {
-                  this.log.conest.error(cbError, {
+                  this.conEstLog.error(cbError, {
                     step,
                   }, 'Unhandled callback Error in EstablishConnection');
                 }
@@ -1036,97 +1115,19 @@ export default class FinTSClient {
         }
       });
     };
-    this.log.conest.debug({
+    this.conEstLog.debug({
       step: 1,
     }, 'Start First Connection');
     performStep(1);
-  };
+  }
 
-  private sendMsgToDestination = function (msg, callback, inFinishing?) { // Parameter für den Callback sind error,data
-    // Ensure the sequence of messages!
-    if (!inFinishing) {
-      if (this.inConnection) {
-        throw new Exceptions.OutofSequenceMessageException();
-      }
-      this.inConnection = true;
-    }
-    const intCallback = function (param1, param2) {
-      if (!inFinishing) {
-        this.inConnection = false;
-      }
-      callback(param1, param2);
-    };
-    const txt = msg.transformForSend();
-    this.debugLogMsg(txt, true);
-    const postData = new Buffer(txt).toString('base64');
-    const u = url.parse(this.bpd.url);
-    const options = {
-      hostname: u.hostname,
-      port: u.port,
-      path: u.path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain',
-        'Content-Length': postData.length,
-      },
-    };
-    let data = '';
-    const prot = u.protocol === 'http:' ? http : https;
-    this.log.con.debug({
-      host: u.hostname,
-      port: u.port,
-      path: u.path,
-    }, 'Connect to Host');
-
-    const connectionCallback = (res) => { // https.request(options, function(res) {
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', function () {
-        // Hir wird dann weiter gemacht :)
-        this.log.con.debug({
-          host: u.hostname,
-          port: u.port,
-          path: u.path,
-        }, 'Request finished');
-        const clearTxt = encoding.convert(new Buffer(data, 'base64'), 'UTF-8', 'ISO-8859-1').toString('utf8'); // TODO: this only applies for HBCI? can we dynamically figure out the charset?
-
-        this.debugLogMsg(clearTxt, false);
-        try {
-          const msgRecV = new Nachricht(this.protoVersion);
-          msgRecV.parse(clearTxt);
-          intCallback(null, msgRecV);
-        } catch (e) {
-          this.log.con.error(e, 'Could not parse received Message');
-          intCallback(e.toString(), null);
-        }
-      });
-    };
-
-    const req: ClientRequest = u.protocol === 'http:' ?
-      http.request(options, connectionCallback) :
-      https.request(options, connectionCallback);
-
-    req.on('error', function () {
-      // Hier wird dann weiter gemacht :)
-      this.log.con.error({
-        host: u.hostname,
-        port: u.port,
-        path: u.path,
-      }, 'Could not connect to ' + options.hostname);
-      intCallback(new Exceptions.ConnectionFailedException(u.hostname, u.port, u.path), null);
-    });
-    req.write(postData);
-    req.end();
-  };
-
-  private debugLogMsg = function (txt, send) {
-    this.log.con.trace({
+  private debugLogMsg = (txt, send) => {
+    this.conLog.trace({
       raw_data: txt,
       send_or_recv: send ? 'send' : 'recv',
     }, 'Connection Data Trace');
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  };
+  }
 }

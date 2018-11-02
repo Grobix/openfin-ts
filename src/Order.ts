@@ -1,4 +1,5 @@
 import { Exceptions } from './Exceptions';
+import FinTSClient from './FinTSClient';
 import Helper from './Helper';
 import Nachricht from './Nachricht';
 import { NULL } from './NULL';
@@ -15,7 +16,7 @@ export default class Order {
   private intSendMsg: SendMessage[] = [];
   private intGmsgList = [];
 
-  constructor(public client) {}
+  constructor(public client: FinTSClient) {}
 
   public requireTan() {
     this.intReqTan = true;
@@ -28,19 +29,19 @@ export default class Order {
     }
     // 1. check if we support one of the segment versions
     let actVers: any = 0;
-    if (inData.ki_type in this.client.bpd.gv_parameters) {
+    if (inData.ki_type in this.client.bpd.gvParameters) {
       const availVers = Object.keys(inData.send_msg).sort((a: any, b: any) => {
         return (b - a);
       });
       for (const i in availVers) {
-        if (availVers[i] in this.client.bpd.gv_parameters[inData.ki_type]) {
+        if (availVers[i] in this.client.bpd.gvParameters[inData.ki_type]) {
           actVers = availVers[i];
           break;
         }
       }
     }
     if (actVers === 0) {
-      this.error = new Exceptions.GVNotSupportedByKI(inData.ki_type, this.client.bpd.gv_parameters[inData.ki_type]);
+      this.error = new Exceptions.GVNotSupportedByKI(inData.ki_type, this.client.bpd.gvParameters[inData.ki_type]);
       return false;
     }
     // 2. Find the appropriate action
@@ -70,7 +71,7 @@ export default class Order {
     // Exit CB is called when the function returns here it is checked if an error occures and then disconnects
     const extCb = (error, order, recvMsg) => {
       if (error) {
-        this.client.MsgEndDialog(function (error2, recvMsg2) {
+        this.client.msgEndDialog(function (error2, recvMsg2) {
           if (error2) {
             this.client.log.con.error({
               error: error2,
@@ -88,15 +89,15 @@ export default class Order {
     } else {
       // Message prepare
       const perform = () => {
-        const msg = new Nachricht(this.client.proto_version);
+        const msg = new Nachricht(this.client.protoVersion);
         const signInfo = new SignInfo();
         signInfo.pin = this.client.pin;
         signInfo.tan = NULL;
-        signInfo.sysId = this.client.sys_id;
+        signInfo.sysId = this.client.sysId;
         signInfo.sigId = this.client.getNewSigId();
 
-        msg.init(this.client.dialog_id, this.client.next_msg_nr, this.client.blz, this.client.kunden_id);
-        this.client.next_msg_nr += 1;
+        msg.init(this.client.dialogId, this.client.nextMsgNr, this.client.blz, this.client.kundenId);
+        this.client.nextMsgNr += 1;
         // Fill in Segments
 
         for (const j in this.intSendMsg) {
@@ -127,7 +128,7 @@ export default class Order {
           msg.addSeg(sendMessage.segment);
         }
         // Send Segments to Destination
-        this.client.SendMsgToDestination(msg, (error, recvMsg) => {
+        this.client.sendMsgToDestination(msg, (error, recvMsg) => {
           if (error) {
             extCb(error, this, null);
           } else {
@@ -234,7 +235,7 @@ export default class Order {
   }
 
   public checkKITypeAvailible = function (kiType, vers, returnParam?) {
-    if (kiType in this.client.bpd.gv_parameters) {
+    if (kiType in this.client.bpd.gvParameters) {
       const pReturn = {};
       let testVers = [];
 
@@ -245,9 +246,9 @@ export default class Order {
       }
 
       for (const vindex in testVers) {
-        if (testVers[vindex] in this.client.bpd.gv_parameters[kiType]) {
+        if (testVers[vindex] in this.client.bpd.gvParameters[kiType]) {
           if (returnParam) {
-            pReturn[vindex] = this.client.bpd.gv_parameters[kiType][testVers[vindex]];
+            pReturn[vindex] = this.client.bpd.gvParameters[kiType][testVers[vindex]];
           } else {
             return true;
           }

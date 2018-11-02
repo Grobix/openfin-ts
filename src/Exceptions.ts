@@ -1,4 +1,3 @@
-import { Error } from '../node_modules/tslint/lib/error';
 import DatenElementGruppe from './DatenElementGruppe';
 
 export namespace Exceptions {

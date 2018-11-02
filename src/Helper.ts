@@ -16,12 +16,15 @@ export default class Helper {
     }
 
     for (let i = 0; i !== array.length; i += 1) {
-      for (let a = 0; a !== array[i].store.data.length; a += 1) {
-        const d = array[i].store.data[a];
-        if (d.getEl(1) === id) {
-          return d;
+
+      let result = null;
+      array[0].store.data.forEach(el => {
+        if (el.data.getEl(1) === id) {
+          result = el.data;
         }
-      }
+      });
+
+      return result;
     }
 
     return null;
@@ -68,7 +71,7 @@ export default class Helper {
     return seg;
   }
 
-  public static convertIntoArray(deOrDeg): [DatenElement] {
+  public static convertIntoArray(deOrDeg): DatenElement[] {
     if (deOrDeg instanceof DatenElementGruppe) {
       return deOrDeg.data;
     }
