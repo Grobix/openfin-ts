@@ -178,6 +178,7 @@ module.exports = function () {
       return null
     } else {
       var obj = me.dialog_array[id]
+        debugger;
       if (obj === undefined) throw new Error('Diese Dialog ID existiert nicht!')
       return obj
     }

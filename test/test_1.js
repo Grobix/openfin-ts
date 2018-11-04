@@ -33,7 +33,7 @@ var express = require('express')
 var http = require('http')
 var textBody = require('body')
 var FinTSServer = require('../dev/FinTSServer.js')
-var FinTSClient = require('../')
+var FinTSClient = require('../out/FinTSClient.js').default;
 var should = require('should')
 var config = null
 try {
@@ -99,6 +99,7 @@ describe('testserver', function () {
           return res.end('NO U')
         }
         res.setHeader('Content-Type', 'text/plain')
+          debugger;
         res.send(myFINTSServer.handleIncomeMessage(body))
       })
     })
@@ -132,44 +133,47 @@ describe('testserver', function () {
     })
   })
 
-  it('Test 1 - MsgInitDialog', function (done) {
+  it('Test 1 -.msgInitDialog', function (done) {
+    debugger;
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 1'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
-        throw error
+        console.log(error);
+        done(new Error(error));
+        return;
       }
-      client.bpd.should.have.property('vers_bpd', '78')
-      client.upd.should.have.property('vers_upd', '3')
-      client.sys_id.should.equal('DDDA10000000000000000000000A')
+      client.bpd.should.have.property('versBpd', '78')
+      client.upd.should.have.property('versUpd', '3')
+      client.sysId.should.equal('DDDA10000000000000000000000A')
       client.konten.should.be.an.Array
       client.konten.should.have.a.lengthOf(2)
       client.konten[0].iban.should.equal('DE111234567800000001')
-      should(client.konten[0].sepa_data).equal(null)
+      should(client.konten[0].sepaData).equal(null)
       done()
     }))
   })
 
-  it('Test 2 - MsgInitDialog wrong user', function (done) {
+  it('Test 2 -.msgInitDialog wrong user', function (done) {
     var client = new FinTSClient(12345678, 'test2', '1234', bankenliste, logger('Test 2'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
         done()
       } else {
-        throw 'Erfolg sollte nicht passieren'
+        done(new Error('Erfolg sollte nicht passieren'))
       }
     }))
   })
 
-  it('Test 3 - MsgInitDialog wrong pin', function (done) {
+  it('Test 3 -.msgInitDialog wrong pin', function (done) {
     var client = new FinTSClient(12345678, 'test1', '12341', bankenliste, logger('Test 3'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
         done()
       } else {
-        throw 'Erfolg sollte nicht passieren'
+        done(new Error('Erfolg sollte nicht passieren'))
       }
     }))
   })
@@ -177,13 +181,17 @@ describe('testserver', function () {
   it('Test 4 - MsgEndDialog', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 4'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
-        throw error
+        console.log(error);
+        done(new Error(error));
+        return;
       } else {
-        client.MsgEndDialog(mocha_catcher(done, function (error, recvMsg2) {
+        client.msgEndDialog(mocha_catcher(done, function (error, recvMsg2) {
           if (error) {
-            throw error
+              console.log(error);
+            done(new Error(error));
+            return;
           }
           done()
         }))
@@ -193,20 +201,22 @@ describe('testserver', function () {
 
   it('Test 5 - MsgRequestSepa', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 5'))
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(function(m_err){console.log(m_err); done()}, function (error, recvMsg, has_neu_url) {
       if (error) {
-        throw error
+        console.log(error);
+        done(new Error(error))
       } else {
-        client.bpd.should.have.property('vers_bpd', '78')
-        client.upd.should.have.property('vers_upd', '3')
-        client.sys_id.should.equal('DDDA10000000000000000000000A')
+        client.bpd.should.have.property('versBpd', '78')
+        client.upd.should.have.property('versUpd', '3')
+        client.sysId.should.equal('DDDA10000000000000000000000A')
         client.konten.should.be.an.Array
         client.konten.should.have.a.lengthOf(2)
         client.konten[0].iban.should.equal('DE111234567800000001')
-        should(client.konten[0].sepa_data).equal(null)
-        client.MsgRequestSepa(null, mocha_catcher(done, function (error3, recvMsg3, sepa_list) {
+        should(client.konten[0].sepaData).equal(null)
+        client.msgRequestSepa(null, mocha_catcher(function(m_error){console.log(m_error); done()}, function (error3, recvMsg3, sepa_list) {
           if (error3) {
-            throw error3
+            console.log(error3);
+            done(new Error(error3))
           }
           sepa_list.should.be.an.Array
           sepa_list[0].iban.should.equal('DE111234567800000001')
@@ -219,19 +229,22 @@ describe('testserver', function () {
 
   it('Test 5.1 - MsgRequestSepa - failed connection', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 5.1'))
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
-        throw error
+          console.log(error);
+        done(new Error(error))
       } else {
-        client.bpd.should.have.property('vers_bpd', '78')
-        client.upd.should.have.property('vers_upd', '3')
-        client.sys_id.should.equal('DDDA10000000000000000000000A')
+        debugger;
+        client.bpd.should.have.property('versBpd', '78')
+        client.upd.should.have.property('versUpd', '3')
+        client.sysId.should.equal('DDDA10000000000000000000000A')
         client.konten.should.be.an.Array
         client.konten.should.have.a.lengthOf(2)
         client.konten[0].iban.should.equal('DE111234567800000001')
-        should(client.konten[0].sepa_data).equal(null)
+        should(client.konten[0].sepaData).equal(null)
         client.bpd.url = 'http://thiswillnotworkurl'
-        client.MsgRequestSepa(null, mocha_catcher(done, function (error3, recvMsg3, sepa_list) {
+        client.msgRequestSepa(null, mocha_catcher(done, function (error3, recvMsg3, sepa_list) {
+          console.log(error3);
           should(error3).not.equal(null)
           error3.should.be.instanceOf(client.Exceptions.ConnectionFailedException)
           done()
@@ -240,12 +253,14 @@ describe('testserver', function () {
     }))
   })
 
-  it('Test 6 - EstablishConnection', function (done) {
+  it('Test 6 -.establishConnection', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 6'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
-        throw error
+          console.log(error);
+        done(new Error(error))
       } else {
+        debugger;
         client.bpd.should.have.property('vers_bpd', '78')
         client.upd.should.have.property('vers_upd', '3')
         client.sys_id.should.equal('DDDA10000000000000000000000A')
@@ -260,38 +275,39 @@ describe('testserver', function () {
     }))
   })
 
-  it('Test 6.1 - EstablishConnection - Test Wrong User', function (done) {
+  it('Test 6.1 -.establishConnection - Test Wrong User', function (done) {
     var client = new FinTSClient(12345678, 'test1_wrong_user', '1234', bankenliste, logger('Test 6.1'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
+        console.log(error);
         done()
       } else {
-        throw 'Kein Fehler trotz falscher Benutzer!'
+        done(new Error('Kein Fehler trotz falscher Benutzer!'))
       }
     }))
   })
 
-  it('Test 6.2 - EstablishConnection - Test Wrong password', function (done) {
+  it('Test 6.2 -.establishConnection - Test Wrong password', function (done) {
     var client = new FinTSClient(12345678, 'test1', '123d', bankenliste, logger('Test 6.2'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
         done()
       } else {
-        throw 'Kein Fehler trotz falschem Passwort.'
+        done(new Error('Kein Fehler trotz falschem Passwort.'))
       }
     }))
   })
 
-  it('Test 7 - MsgGetKontoUmsaetze', function (done) {
+  it('Test 7 -.msgGetKontoUmsaetze', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 7'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
-        throw error
+        done(new Error(error))
       } else {
         client.konten[0].sepa_data.should.not.equal(null)
-        client.MsgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
-            throw error2
+            done(new Error(error2))
           } else {
             // Alles gut
             should(data).not.equal(null)
@@ -324,16 +340,16 @@ describe('testserver', function () {
       myFINTSServer.hikas_2_mode = true
     })
 
-    it('Test 7.1 - MsgGetKontoUmsaetze - mit Aufsetzpunkt', function (done) {
+    it('Test 7.1 -.msgGetKontoUmsaetze - mit Aufsetzpunkt', function (done) {
       var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 7.1'))
-      client.EstablishConnection(mocha_catcher(done, function (error) {
+      client.establishConnection(mocha_catcher(done, function (error) {
         if (error) {
-          throw error
+          done(new Error(error))
         } else {
           client.konten[0].sepa_data.should.not.equal(null)
-          client.MsgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+          client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
             if (error2) {
-              throw error2
+              done(new Error(error2))
             } else {
               // Alles gut
               should(data).not.equal(null)
@@ -355,20 +371,20 @@ describe('testserver', function () {
     })
   })
 
-  it('Test 8 - MsgGetSaldo', function (done) {
+  it('Test 8 -.msgGetSaldo', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 8'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
-        throw error
+        done(new Error(error))
       } else {
         client.konten[0].sepa_data.should.not.equal(null)
-        client.MsgGetSaldo(client.konten[0].sepa_data, mocha_catcher(done, function (error2, rMsg, data) {
+        client.msgGetSaldo(client.konten[0].sepa_data, mocha_catcher(done, function (error2, rMsg, data) {
           // TODO Better Test Case
           if (error2) {
-            throw error2
+            done(new Error(error2))
           } else {
             // Testcase erweitern
-            client.MsgEndDialog(function (error, recvMsg2) {})
+            client.msgEndDialog(function (error, recvMsg2) {})
             done()
           }
         }))
@@ -381,11 +397,11 @@ describe('testserver', function () {
       myFINTSServer.proto_version = 220
     })
 
-    it('Test 6.1 - EstablishConnection', function (done) {
+    it('Test 6.1 -.establishConnection', function (done) {
       var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 6.1'))
-      client.EstablishConnection(mocha_catcher(done, function (error) {
+      client.establishConnection(mocha_catcher(done, function (error) {
         if (error) {
-          throw error
+          done(new Error(error))
         } else {
           client.bpd.should.have.property('vers_bpd', '78')
           client.upd.should.have.property('vers_upd', '3')
@@ -406,17 +422,17 @@ describe('testserver', function () {
     })
   })
 
-  it('Test 9 - MsgGetKontoUmsaetze - test series calls', function (done) {
+  it('Test 9 -.msgGetKontoUmsaetze - test series calls', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 9'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
-        throw error
+        done(new Error(error))
       } else {
         var error_checked_okay = false
         client.konten[0].sepa_data.should.not.equal(null)
-        client.MsgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
-            throw error2
+            done(new Error(error2))
           } else {
             // Alles gut
             should(data).not.equal(null)
@@ -432,7 +448,7 @@ describe('testserver', function () {
         }))
         // das ist der eigentliche Test
         try {
-          client.MsgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {}))
+          client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {}))
         } catch (error_to_check) {
           should(error_to_check).not.equal(null)
           error_to_check.should.be.instanceOf(client.Exceptions.OutofSequenceMessageException)

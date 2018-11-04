@@ -14,8 +14,14 @@
     "prefer-const": true,
     "max-line-length": false,
     "prefer-template": false,
+    "no-namespace": false,
+    "align": false,
+    "forin": false,
     "no-unused-variable": [
       true
-    ]
+    ],
+    "object-literal-sort-keys": false,
+    "no-console": false,
+    "no-duplicate-imports": false
   }
 }

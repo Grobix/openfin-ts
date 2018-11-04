@@ -1,191 +1,192 @@
+import Betrag from './Betrag';
+import ByteVal from './ByteVal';
+import DatenElement from './DatenElement';
+import DatenElementGruppe from './DatenElementGruppe';
 import Nachricht from './Nachricht';
+import { Saldo } from './Saldo';
+import Segment from './Segment';
+import { UmsatzTyp } from './UmsatzTyp';
 
 export default class Helper {
 
-  public checkMsgsWithBelongToForId(msg: Nachricht, bez: string, id) {
-    var array = msg.selectSegByNameAndBelongTo('HIRMS', bez)
-    if (array.length > 0) {
-      for (var i = 0; i != array.length; i++) {
-        for (var a = 0; a != array[i].store.data.length; a++) {
-          var d = array[i].store.data[a]
-          if (d.getEl(1) == id) {
-            return d
-          }
+  public static checkMsgsWithBelongToForId(msg: Nachricht, bez: any, id) {
+    const array = msg.selectSegByNameAndBelongTo('HIRMS', bez);
+    if (array.length <= 0) {
+      return null;
+    }
+
+    for (let i = 0; i !== array.length; i += 1) {
+
+      let result = null;
+      array[0].store.data.forEach(el => {
+        if (el.data.getEl(1) === id) {
+          result = el.data;
         }
-      }
-      return null
-    } else {
-      return null
+      });
+
+      return result;
     }
+
+    return null;
   }
 
-  this.getNrWithLeadingNulls = function (nr, len) {
-    var stxt = nr + ''
-    var ltxt = ''
-    var neu = len - stxt.length
-    for (var i = 0; i != neu; i++) {
-      ltxt += '0'
+  public static getNrWithLeadingNulls(nr, len) {
+    const stxt = nr + '';
+    let ltxt = '';
+    const neu = len - stxt.length;
+    for (let i = 0; i !== neu; i += 1) {
+      ltxt += '0';
     }
-    ltxt += stxt
-    return ltxt
+    ltxt += stxt;
+    return ltxt;
   }
 
-  this.newSegFromArrayWithBez = function (name, vers, bez, ar) {
-    var seg = this.newSegFromArray(name, vers, ar)
-    seg.bez = bez
-    return seg
-  }
+  public static newSegFromArrayWithBez = function (name, vers, bez, ar) {
+    const seg = this.newSegFromArray(name, vers, ar);
+    seg.bez = bez;
+    return seg;
+  };
 
-  this.newSegFromArray = function (name, vers, ar) {
-    var seg = new Segment()
-    seg.init(name, 0, vers, 0)
-    for (var i = 0; i != ar.length; i++) {
+  public static newSegFromArray(name, vers, ar): Segment {
+    const seg = new Segment();
+    seg.init(name, 0, vers, 0);
+    for (let i = 0; i !== ar.length; i += 1) {
       if (ar[i] instanceof Array) {
-        var neu = new DatenElementGruppe()
-        for (var j = 0; j != ar[i].length; j++) {
+        const neu = new DatenElementGruppe();
+        for (let j = 0; j !== ar[i].length; j += 1) {
           if (ar[i][j] instanceof ByteVal) {
-            neu.addDEbin(ar[i][j].data)
+            neu.addDEbin(ar[i][j].data);
           } else {
-            neu.addDE(ar[i][j])
+            neu.addDE(ar[i][j]);
           }
         }
-        seg.store.addDEG(neu)
+        seg.store.addDEG(neu);
       } else if (ar[i] instanceof ByteVal) {
-        seg.store.addDEbin(ar[i].data)
+        seg.store.addDEbin(ar[i].data);
       } else {
         // normales datenelement
-        seg.store.addDE(ar[i])
+        seg.store.addDE(ar[i]);
       }
     }
-    return seg
+    return seg;
   }
 
-  this.convertIntoArray = function (de_or_deg) {
-    if (de_or_deg instanceof DatenElementGruppe) {
-      var r = []
-      for (var i = 0; i != de_or_deg.data.length; i++) {
-        r.push(de_or_deg.data[i])
-      }
-      return r
-    } else {
-      return [de_or_deg]
+  public static convertIntoArray(deOrDeg): DatenElement[] {
+    if (deOrDeg instanceof DatenElementGruppe) {
+      return deOrDeg.data;
     }
+    return [deOrDeg];
   }
 
-  this.convertDateToDFormat = function (date) {
-    var yyyy = date.getFullYear() + ''
-    var mm = ((date.getMonth() + 1) <= 9) ? ('0' + (date.getMonth() + 1)) : ((date.getMonth() + 1) + '')
-    var dd = (date.getDate() <= 9) ? ('0' + date.getDate()) : (date.getDate() + '')
-    return yyyy + mm + dd
+  public static convertDateToDFormat(date) {
+    const yyyy = date.getFullYear() + '';
+    const mm = ((date.getMonth() + 1) <= 9) ? ('0' + (date.getMonth() + 1)) : ((date.getMonth() + 1) + '');
+    const dd = (date.getDate() <= 9) ? ('0' + date.getDate()) : (date.getDate() + '');
+    return yyyy + mm + dd;
   }
 
-  this.convertDateToTFormat = function (date) {
-    var hh = ((date.getHours() <= 9) ? '0' : '') + date.getHours()
-    var mm = ((date.getMinutes() <= 9) ? '0' : '') + date.getMinutes()
-    var ss = ((date.getSeconds() <= 9) ? '0' : '') + date.getSeconds()
-    return hh + mm + ss
+  public static convertDateToTFormat(date) {
+    const hh = ((date.getHours() <= 9) ? '0' : '') + date.getHours();
+    const mm = ((date.getMinutes() <= 9) ? '0' : '') + date.getMinutes();
+    const ss = ((date.getSeconds() <= 9) ? '0' : '') + date.getSeconds();
+    return hh + mm + ss;
   }
 
-  this.convertFromToJSText = function (ftxt) {
-    var jstxt = ''
-    var re = /\?([^\?])/g
-    jstxt = ftxt.replace(re, '$1')
-    return jstxt
+  public static convertFromToJSText(ftxt) {
+    let jstxt = '';
+    const re = /\?([^\?])/g;
+    jstxt = ftxt.replace(re, '$1');
+    return jstxt;
   }
 
-  this.convertJSTextTo = function (jstxt) {
-    var ftxt = ''
-    var re = /([:\+\?'\@])/g
-    ftxt = jstxt.replace(re, '?$&')
-    return ftxt
+  public static convertJSTextTo(jstxt) {
+    let ftxt = '';
+    const re = /([:\+\?'\@])/g;
+    ftxt = jstxt.replace(re, '?$&');
+    return ftxt;
   }
 
-  this.Byte = function (data) {
-    return new ByteVal(data)
+  public static byte(data) {
+    return new ByteVal(data);
   }
 
-  this.getSaldo = function (seg, nr, hbci_3_vers) {
-    if (seg) {
-      try {
-        var base = seg.getEl(nr)
-        var result = {
-          'soll_haben': null,
-          'buchungsdatum': null,
-          'currency': null,
-          'value': null
-        }
-        result.soll_haben = base.getEl(1) == 'C' ? 'H' : 'S'
-        result.currency = hbci_3_vers ? 'EUR' : base.getEl(3)
-        result.value = parseFloat(base.getEl(2).replace(',', '.'))
-        result.buchungsdatum = this.getJSDateFromSeg(base, hbci_3_vers ? 3 : 4, hbci_3_vers ? 4 : 5)
-        return result
-      } catch (ee) {
-        return null
-      }
-    } else {
-      return null
+  public static getSaldo(seg: Segment, nr, hbciVer3) {
+    if (!seg) {
+      return null;
     }
-  }
 
-  this.getBetrag = function (seg, nr) {
-    if (seg) {
-      try {
-        var base = seg.getEl(nr)
-        var result = {
-          'currency': null,
-          'value': null
-        }
-        result.currency = base.getEl(2)
-        result.value = parseFloat(base.getEl(1).replace(',', '.'))
-        return result
-      } catch (ee) {
-        return null
-      }
-    } else {
-      return null
-    }
-  }
-
-  this.getJSDateFromSegTSP = function (seg, nr) {
     try {
-      var base = seg.getEl(nr)
-      return this.getJSDateFromSeg(base, 1, 2)
+      const base = seg.getEl(nr).data;
+      const result = new Saldo();
+
+      result.sollHaben = base.getEl(1) === 'C' ? UmsatzTyp.HABEN : UmsatzTyp.SOLL;
+      result.currency = hbciVer3 ? 'EUR' : base.getEl(3);
+      result.value = parseFloat(base.getEl(2).replace(',', '.'));
+      result.buchungsdatum = this.getJSDateFromSeg(base, hbciVer3 ? 3 : 4, hbciVer3 ? 4 : 5);
+      return result;
+    } catch (ee) {
+      return null;
+    }
+  }
+
+  public static getBetrag(seg, nr): Betrag {
+    if (!seg) {
+      return null;
+    }
+
+    try {
+      const base = seg.getEl(nr).data;
+      const result = new Betrag();
+      result.currency = base.getEl(2);
+      result.value = parseFloat(base.getEl(1).replace(',', '.'));
+      return result;
+    } catch (ee) {
+      return null;
+    }
+  }
+
+  public static getJSDateFromSegTSP(seg: Segment, nr) {
+    try {
+      const base = seg.getEl(nr).data;
+      return this.getJSDateFromSeg(base, 1, 2);
     } catch (e) {
-      return null
+      return null;
     }
   }
 
-  this.getJSDateFromSeg = function (seg, date_nr, time_nr) {
-    if (seg) {
+  public static getJSDateFromSeg(seg, dateNr, timeNr?) {
+    if (!seg) {
+      return null;
+    }
+
+    try {
+      const date = seg.getEl(dateNr);
+      let time = '000000';
       try {
-        var date = seg.getEl(date_nr)
-        var time = '000000'
-        try {
-          if (time_nr) time = seg.getEl(time_nr)
-        } catch (eee) {}
-        var result = new Date()
-        result.setTime(0)
-        result.setYear(parseInt(date.substr(0, 4), 10))
-        result.setMonth(parseInt(date.substr(4, 2), 10) - 1)
-        result.setDate(parseInt(date.substr(6, 2), 10))
-        result.setHours(parseInt(time.substr(0, 2), 10))
-        result.setMinutes(parseInt(time.substr(2, 2), 10))
-        result.setSeconds(parseInt(time.substr(4, 2), 10))
-        return result
-      } catch (ee) {
-        return null
+        if (timeNr) time = seg.getEl(timeNr);
+      } catch (eee) {
+        // do nothing
       }
-    } else {
-      return null
+      const result = new Date();
+      result.setTime(0);
+      result.setFullYear(parseInt(date.substr(0, 4), 10));
+      result.setMonth(parseInt(date.substr(4, 2), 10) - 1);
+      result.setDate(parseInt(date.substr(6, 2), 10));
+      result.setHours(parseInt(time.substr(0, 2), 10));
+      result.setMinutes(parseInt(time.substr(2, 2), 10));
+      result.setSeconds(parseInt(time.substr(4, 2), 10));
+      return result;
+    } catch (ee) {
+      return null;
     }
   }
 
-  this.escapeUserString = function (str) {
+  public static escapeUserString(str) {
     // escapes special characters with a '?'
     // use this when forwarding user defined input (such as username/password) to a server
     //
     // SOURCE: http://linuxwiki.de/HBCI/F%C3%BCrEntwickler
     // TODO: find better/official source
-    return str.replace(/[?+:]/g, '?$&')
+    return str.replace(/[?+:]/g, '?$&');
   }
-}()
+}
