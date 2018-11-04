@@ -8,7 +8,7 @@ export default class Nachricht {
   public segments: Segment[] = [];
   public segmentsCounter = 0;
   public signIt: SignInfo = null;
-  public hnvsk = null;
+  public hnvsk: Segment = null;
   public messageNumber = 0;
 
   constructor(public protoVersion) {
