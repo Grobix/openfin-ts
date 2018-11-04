@@ -200,7 +200,7 @@ describe('testserver', function () {
     }))
   })
 
-  xit('Test 5 - MsgRequestSepa', function (done) {
+  it('Test 5 - MsgRequestSepa', function (done) {
     var client = new FinTSClient(12345678, 'test1', '1234', bankenliste, logger('Test 5'))
     client.msgInitDialog(mocha_catcher(function(m_err){console.log(m_err); done()}, function (error, recvMsg, has_neu_url) {
       if (error) {

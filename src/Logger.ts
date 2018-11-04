@@ -3,6 +3,7 @@ import * as bunyan from 'bunyan';
 export default class Logger {
 
   public static getLogger(area: string) {
+    return console;
     if (area === 'main') {
       return this.main;
     }
@@ -17,7 +18,7 @@ export default class Logger {
 
   private static main = bunyan.createLogger({
     name: 'open-fin-ts-js-client',
-    streams: [],
+    //streams: [],
   });
 
   private static loggerMap: {[area: string]: any} = {};

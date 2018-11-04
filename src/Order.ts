@@ -71,13 +71,13 @@ export default class Order {
     // Exit CB is called when the function returns here it is checked if an error occures and then disconnects
     const extCb = (error, order, recvMsg) => {
       if (error) {
-        this.client.msgEndDialog(function (error2, recvMsg2) {
+        this.client.msgEndDialog((error2, recvMsg2) => {
           if (error2) {
-            this.client.log.con.error({
+            this.client.conLog.error({
               error: error2,
             }, 'Connection close failed after error.');
           } else {
-            this.client.log.con.debug('Connection closed okay, after error.');
+            this.client.conLog.debug('Connection closed okay, after error.');
           }
         });
       }
@@ -234,7 +234,7 @@ export default class Order {
     return e;
   }
 
-  public checkKITypeAvailible = function (kiType, vers, returnParam?) {
+  public checkKITypeAvailible = (kiType, vers, returnParam?) => {
     if (kiType in this.client.bpd.gvParameters) {
       const pReturn = {};
       let testVers = [];
@@ -264,7 +264,7 @@ export default class Order {
       return {};
     }
     return false;
-  };
+  }
 
   public helper(): OrderHelperChain {
     return new OrderHelperChain(this);

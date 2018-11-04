@@ -56,13 +56,13 @@ export default class FinTSClient {
   public sysId = 0;
   public protoVersion = 300;
   public bpd: BPD = new BPD();
+  public log = Logger.getLogger('main');
+  public conLog = Logger.getLogger('con');
+  public conEstLog = Logger.getLogger('conest');
+  public gvLog = Logger.getLogger(('gv'));
   public upd: UPD = new UPD();
 
   private bankenliste: { [index: string]: Bank };
-  private log = Logger.getLogger('main');
-  private conLog = Logger.getLogger('con');
-  private conEstLog = Logger.getLogger('conest');
-  private gvLog = Logger.getLogger(('gv'));
   private ctry = 280;
   private tan = NULL;
   private debugMode = false;
@@ -317,7 +317,7 @@ export default class FinTSClient {
               if (this.protoVersion === 300) {
                 try {
                   // 5.3 Pins
-                  const pinData = recvMsg.selectSegByName('HIPINS')[0].getEl(4);
+                  const pinData = recvMsg.selectSegByName('HIPINS')[0].getEl(4).data;
                   this.bpd.pin.minLength = pinData.getEl(1);
                   this.bpd.pin.maxLength = pinData.getEl(2);
                   this.bpd.pin.maxTanLength = pinData.getEl(3);
@@ -411,7 +411,7 @@ export default class FinTSClient {
               try {
                 const HIUPA = recvMsg.selectSegByName('HIUPA')[0];
                 this.upd.versUpd = HIUPA.getEl(3).data;
-                this.upd.geschaeftsVorgGesp = HIUPA.getEl(4).data === '0'; // UPD-Verwendung
+                this.upd.geschaeftsVorgGesp = (HIUPA.getEl(4) && HIUPA.getEl(4).data === '0'); // UPD-Verwendung
               } catch (ee) {
                 this.gvLog.error(ee, {
                   gv: 'HIUPA',
@@ -651,7 +651,7 @@ export default class FinTSClient {
             this.sysId = origSysId;
             this.lastSignaturId = origLastSig;
             originalBpd.url = this.bpd.url;
-            originalUpd.availible_tan_verfahren[0] = neuSigMethod;
+            originalUpd.availableTanVerfahren[0] = neuSigMethod;
           }
 
           if (hastNeuUrl) {
