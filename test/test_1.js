@@ -217,7 +217,8 @@ describe('testserver', function () {
         client.msgRequestSepa(null, mocha_catcher(function(m_error){console.log(m_error); done()}, function (error3, recvMsg3, sepa_list) {
           if (error3) {
             console.log(error3);
-            done(new Error(error3))
+            done(new Error(error3));
+            return;
           }
           sepa_list.should.be.an.Array
           sepa_list[0].iban.should.equal('DE111234567800000001')

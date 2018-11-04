@@ -326,7 +326,7 @@ export default class FinTSClient {
                   // 5.3.2 Tanerforderlichkeit für die Geschäftsvorfälle
                   this.bpd.pin.availableSeg = {}; // true and false für ob Tan erforderlich
                   for (let i = 5; i < pinData.data.length; i += 1) {
-                    this.bpd.pin.availableSeg[pinData.data[i]] = pinData.data[i + 1].toUpperCase() === 'J';
+                    this.bpd.pin.availableSeg[pinData.data[i].data] = pinData.data[i + 1].data.toUpperCase() === 'J';
                     i += 1;
                   }
                 } catch (ee) {
@@ -424,7 +424,7 @@ export default class FinTSClient {
                   if (hirmsForTanV.store.data[i].data.getEl(1) === '3920') {
                     this.upd.availableTanVerfahren = [];
                     for (let a = 3; a < hirmsForTanV.store.data[i].data.data.length; a += 1) {
-                      this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data.data[a]);
+                      this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data.data[a].data);
                     }
                     if (this.upd.availableTanVerfahren.length > 0) {
                       this.gvLog.info({
