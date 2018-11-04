@@ -230,7 +230,7 @@ export default class FinTSClient {
       gv: 'HKVVB',
     }, 'Send HKVVB,HKIDN');
 
-    this.sendMsgToDestination(msg, (error, recvMsg) => {
+    this.sendMsgToDestination(msg, (error, recvMsg: Nachricht) => {
       if (error) {
         this.gvLog.error(error, {
           gv: 'HKVVB',
@@ -423,8 +423,8 @@ export default class FinTSClient {
                 for (let i = 0; i !== hirmsForTanV.store.data.length; i += 1) {
                   if (hirmsForTanV.store.data[i].data.getEl(1) === '3920') {
                     this.upd.availableTanVerfahren = [];
-                    for (let a = 3; a < hirmsForTanV.store.data[i].data.length; a += 1) {
-                      this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data[a]);
+                    for (let a = 3; a < hirmsForTanV.store.data[i].data.data.length; a += 1) {
+                      this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data.data[a]);
                     }
                     if (this.upd.availableTanVerfahren.length > 0) {
                       this.gvLog.info({
@@ -442,12 +442,12 @@ export default class FinTSClient {
               // 8. Analysiere Geschäftsvorfallparameter
               try {
                 for (const i in recvMsg.segments) {
-                  if (recvMsg.segments[i].nathis.length >= 6 && recvMsg.segments[i].nathis.charAt(5) === 'S') {
-                    const gv = recvMsg.segments[i].nathis.substring(0, 5);
+                  if (recvMsg.segments[i].name.length >= 6 && recvMsg.segments[i].name.charAt(5) === 'S') {
+                    const gv = recvMsg.segments[i].name.substring(0, 5);
                     if (!(gv in this.bpd.gvParameters)) {
                       this.bpd.gvParameters[gv] = {};
                     }
-                    this.bpd.gvParameters[gv][recvMsg.segments[i].vers] = recvMsg.segments[i];
+                    this.bpd.gvParameters[gv][recvMsg.segments[i].version] = recvMsg.segments[i];
                   }
                 }
               } catch (ee) {
@@ -557,6 +557,213 @@ export default class FinTSClient {
     }, true);
   }
 
+  public establishConnection = (cb) => {
+    let protocolSwitch = false;
+    let versStep = 1;
+    const originalBpd = this.bpd.clone();
+    originalBpd.clone = this.bpd.clone;
+    const originalUpd = this.upd.clone();
+    originalUpd.clone = this.upd.clone;
+    // 1. Normale Verbindung herstellen um BPD zu bekommen und evtl. wechselnde URL ( 1.versVersuch FinTS 2. versVersuch HBCI2.2 )
+    // 2. Verbindung mit richtiger URL um auf jeden Fall (auch bei geänderter URL) die richtigen BPD zu laden + Tan Verfahren herauszufinden
+    // 3. Abschließende Verbindung aufbauen
+    const performStep = (step) => {
+      this.msgInitDialog((error, recvMsg, hastNeuUrl) => {
+        if (error) {
+          this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
+            if (error2) {
+              this.conEstLog.error({
+                step,
+                error: error2,
+              }, 'Connection close failed.');
+            } else {
+              this.conEstLog.debug({
+                step,
+              }, 'Connection closed okay.');
+            }
+          });
+          // Wurde Version 300 zuerst probiert, kann noch auf Version 220 gewechselt werden, dazu:
+          // Prüfen ob aus der Anfrage Nachricht im Nachrichtenheader(=HNHBK) die Version nicht akzeptiert wurde
+          // HNHBK ist immer Segment Nr. 1
+          // Version steht in Datenelement Nr. 3
+          // ==> Ist ein HIRMS welches auf HNHBK mit Nr. 1 referenziert vorhanden ?
+          // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
+          // ==> Bezieht es sich auf das DE Nr. 3 ?
+          const HIRMS = recvMsg.selectSegByNameAndBelongTo('HIRMS', 1)[0];
+          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).getEl(1) === '9120' && HIRMS.getEl(1).getEl(2) === '3') {
+            // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
+            this.conEstLog.debug({
+              step,
+              hirms: HIRMS,
+            }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
+            this.protoVersion = 220;
+            versStep = 2;
+            protocolSwitch = true;
+            this.clear();
+            performStep(1);
+          } else {
+            // Anderer Fehler
+            this.conEstLog.error({
+              step,
+              error,
+            }, 'Init Dialog failed: ' + error);
+            try {
+              cb(error);
+            } catch (cbError) {
+              this.conEstLog.error(cbError, {
+                step,
+              }, 'Unhandled callback Error in EstablishConnection');
+            }
+          }
+        } else {
+          // Erfolgreich Init Msg verschickt
+          this.conEstLog.debug({
+            step,
+            bpd: this.beautifyBPD(this.bpd),
+            upd: this.upd,
+            url: this.bpd.url,
+            new_sig_method: this.upd.availableTanVerfahren[0],
+          }, 'Init Dialog successful.');
+          if (step === 1 || step === 2) {
+            // Im Step 1 und 2 bleiben keine Verbindungen erhalten
+            // Diese Verbindung auf jeden Fall beenden
+            const neuUrl = this.bpd.url;
+            const neuSigMethod = this.upd.availableTanVerfahren[0];
+            this.bpd = originalBpd.clone();
+            this.upd = originalUpd.clone();
+            const origSysId = this.sysId;
+            const origLastSig = this.lastSignaturId;
+            this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
+              if (error2) {
+                this.conEstLog.error({
+                  step,
+                  error: error2,
+                }, 'Connection close failed.');
+              } else {
+                this.conEstLog.debug({
+                  step,
+                }, 'Connection closed okay.');
+              }
+            });
+            this.clear();
+            this.bpd.url = neuUrl;
+            this.upd.availableTanVerfahren[0] = neuSigMethod;
+            this.sysId = origSysId;
+            this.lastSignaturId = origLastSig;
+            originalBpd.url = this.bpd.url;
+            originalUpd.availible_tan_verfahren[0] = neuSigMethod;
+          }
+
+          if (hastNeuUrl) {
+            if (step === 1) {
+              // Im Step 1 ist das eingeplant, dass sich die URL ändert
+              this.conEstLog.debug({
+                step: 2,
+              }, 'Start Connection in Step 2');
+              performStep(2);
+            } else {
+              // Wir unterstützen keine mehrfach Ändernden URLs
+              if (step === 3) {
+                this.bpd = originalBpd.clone();
+                this.upd = originalUpd.clone();
+                this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
+                  if (error2) {
+                    this.conEstLog.error({
+                      step,
+                      error: error2,
+                    }, 'Connection close failed.');
+                  } else {
+                    this.conEstLog.debug({
+                      step,
+                    }, 'Connection closed okay.');
+                  }
+                });
+              }
+              this.conEstLog.error({
+                step,
+              }, 'Multiple URL changes are not supported!');
+              // Callback
+              try {
+                cb('Mehrfachänderung der URL ist nicht unterstützt!');
+              } catch (cbError) {
+                this.conEstLog.error(cbError, {
+                  step,
+                }, 'Unhandled callback Error in EstablishConnection');
+              }
+            }
+          } else if (step === 1 || step === 2) {
+            // 3: eigentliche Verbindung aufbauen
+            this.conEstLog.debug({
+              step: 3,
+            }, 'Start Connection in Step 3');
+            performStep(3);
+          } else {
+            // Ende Schritt 3 = Verbindung Ready
+            this.conEstLog.debug({
+              step,
+            }, 'Connection entirely established. Now get the available accounts.');
+            // 4. Bekomme noch mehr Details zu den Konten über HKSPA
+            this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
+              if (error4) {
+                this.conEstLog.error({
+                  step,
+                }, 'Error getting the available accounts.');
+                this.msgCheckAndEndDialog(recvMsg, (error3) => {
+                  if (error3) {
+                    this.conEstLog.error({
+                      step,
+                      error: error3,
+                    }, 'Connection close failed.');
+                  } else {
+                    this.conEstLog.debug({
+                      step,
+                    }, 'Connection closed okay.');
+                  }
+                });
+                // Callback
+                try {
+                  cb(error4);
+                } catch (cbError) {
+                  this.conEstLog.error(cbError, {
+                    step,
+                  }, 'Unhandled callback Error in EstablishConnection');
+                }
+              } else {
+                // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
+                for (let i = 0; i !== sepaList.length; i += 1) {
+                  for (let j = 0; j !== this.konten.length; j += 1) {
+                    if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
+                      this.konten[j].unterKonto === sepaList[i].unterKonto) {
+                      this.konten[j].sepaData = sepaList[i];
+                      break;
+                    }
+                  }
+                }
+                // Fertig
+                this.conEstLog.debug({
+                  step,
+                  recv_sepa_list: sepaList,
+                }, 'Connection entirely established and got available accounts. Return.');
+                // Callback
+                try {
+                  cb(null);
+                } catch (cbError) {
+                  this.conEstLog.error(cbError, {
+                    step,
+                  }, 'Unhandled callback Error in EstablishConnection');
+                }
+              }
+            });
+          }
+        }
+      });
+    };
+    this.conEstLog.debug({
+      step: 1,
+    }, 'Start First Connection');
+    performStep(1);
+  }
+
   private beautifyBPD(bpd: BPD) {
     const cbpd = bpd.clone();
     cbpd.gvParameters = '...';
@@ -567,7 +774,7 @@ export default class FinTSClient {
     const hirmgS = recvMsg.selectSegByName('HIRMG');
     for (const k in hirmgS) {
       for (const i in (hirmgS[k].store.data)) {
-        const ermsg = hirmgS[k].store.data[i].getEl(1);
+        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
         if (ermsg === '9800') {
           try {
             cb(null, null);
@@ -912,213 +1119,6 @@ export default class FinTSClient {
         }
       }
     });
-  }
-
-  private establishConnection = (cb) => {
-    let protocolSwitch = false;
-    let versStep = 1;
-    const originalBpd = this.bpd.clone();
-    originalBpd.clone = this.bpd.clone;
-    const originalUpd = this.upd.clone();
-    originalUpd.clone = this.upd.clone;
-    // 1. Normale Verbindung herstellen um BPD zu bekommen und evtl. wechselnde URL ( 1.versVersuch FinTS 2. versVersuch HBCI2.2 )
-    // 2. Verbindung mit richtiger URL um auf jeden Fall (auch bei geänderter URL) die richtigen BPD zu laden + Tan Verfahren herauszufinden
-    // 3. Abschließende Verbindung aufbauen
-    const performStep = (step) => {
-      this.msgInitDialog((error, recvMsg, hastNeuUrl) => {
-        if (error) {
-          this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-            if (error2) {
-              this.conEstLog.error({
-                step,
-                error: error2,
-              }, 'Connection close failed.');
-            } else {
-              this.conEstLog.debug({
-                step,
-              }, 'Connection closed okay.');
-            }
-          });
-          // Wurde Version 300 zuerst probiert, kann noch auf Version 220 gewechselt werden, dazu:
-          // Prüfen ob aus der Anfrage Nachricht im Nachrichtenheader(=HNHBK) die Version nicht akzeptiert wurde
-          // HNHBK ist immer Segment Nr. 1
-          // Version steht in Datenelement Nr. 3
-          // ==> Ist ein HIRMS welches auf HNHBK mit Nr. 1 referenziert vorhanden ?
-          // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
-          // ==> Bezieht es sich auf das DE Nr. 3 ?
-          const HIRMS = recvMsg.selectSegByNameAndBelongTo('HIRMS', 1)[0];
-          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).getEl(1) === '9120' && HIRMS.getEl(1).getEl(2) === '3') {
-            // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
-            this.conEstLog.debug({
-              step,
-              hirms: HIRMS,
-            }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
-            this.protoVersion = 220;
-            versStep = 2;
-            protocolSwitch = true;
-            this.clear();
-            performStep(1);
-          } else {
-            // Anderer Fehler
-            this.conEstLog.error({
-              step,
-              error,
-            }, 'Init Dialog failed: ' + error);
-            try {
-              cb(error);
-            } catch (cbError) {
-              this.conEstLog.error(cbError, {
-                step,
-              }, 'Unhandled callback Error in EstablishConnection');
-            }
-          }
-        } else {
-          // Erfolgreich Init Msg verschickt
-          this.conEstLog.debug({
-            step,
-            bpd: this.beautifyBPD(this.bpd),
-            upd: this.upd,
-            url: this.bpd.url,
-            new_sig_method: this.upd.availableTanVerfahren[0],
-          }, 'Init Dialog successful.');
-          if (step === 1 || step === 2) {
-            // Im Step 1 und 2 bleiben keine Verbindungen erhalten
-            // Diese Verbindung auf jeden Fall beenden
-            const neuUrl = this.bpd.url;
-            const neuSigMethod = this.upd.availableTanVerfahren[0];
-            this.bpd = originalBpd.clone();
-            this.upd = originalUpd.clone();
-            const origSysId = this.sysId;
-            const origLastSig = this.lastSignaturId;
-            this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-              if (error2) {
-                this.conEstLog.error({
-                  step,
-                  error: error2,
-                }, 'Connection close failed.');
-              } else {
-                this.conEstLog.debug({
-                  step,
-                }, 'Connection closed okay.');
-              }
-            });
-            this.clear();
-            this.bpd.url = neuUrl;
-            this.upd.availableTanVerfahren[0] = neuSigMethod;
-            this.sysId = origSysId;
-            this.lastSignaturId = origLastSig;
-            originalBpd.url = this.bpd.url;
-            originalUpd.availible_tan_verfahren[0] = neuSigMethod;
-          }
-
-          if (hastNeuUrl) {
-            if (step === 1) {
-              // Im Step 1 ist das eingeplant, dass sich die URL ändert
-              this.conEstLog.debug({
-                step: 2,
-              }, 'Start Connection in Step 2');
-              performStep(2);
-            } else {
-              // Wir unterstützen keine mehrfach Ändernden URLs
-              if (step === 3) {
-                this.bpd = originalBpd.clone();
-                this.upd = originalUpd.clone();
-                this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-                  if (error2) {
-                    this.conEstLog.error({
-                      step,
-                      error: error2,
-                    }, 'Connection close failed.');
-                  } else {
-                    this.conEstLog.debug({
-                      step,
-                    }, 'Connection closed okay.');
-                  }
-                });
-              }
-              this.conEstLog.error({
-                step,
-              }, 'Multiple URL changes are not supported!');
-              // Callback
-              try {
-                cb('Mehrfachänderung der URL ist nicht unterstützt!');
-              } catch (cbError) {
-                this.conEstLog.error(cbError, {
-                  step,
-                }, 'Unhandled callback Error in EstablishConnection');
-              }
-            }
-          } else if (step === 1 || step === 2) {
-            // 3: eigentliche Verbindung aufbauen
-            this.conEstLog.debug({
-              step: 3,
-            }, 'Start Connection in Step 3');
-            performStep(3);
-          } else {
-            // Ende Schritt 3 = Verbindung Ready
-            this.conEstLog.debug({
-              step,
-            }, 'Connection entirely established. Now get the available accounts.');
-            // 4. Bekomme noch mehr Details zu den Konten über HKSPA
-            this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
-              if (error4) {
-                this.conEstLog.error({
-                  step,
-                }, 'Error getting the available accounts.');
-                this.msgCheckAndEndDialog(recvMsg, (error3) => {
-                  if (error3) {
-                    this.conEstLog.error({
-                      step,
-                      error: error3,
-                    }, 'Connection close failed.');
-                  } else {
-                    this.conEstLog.debug({
-                      step,
-                    }, 'Connection closed okay.');
-                  }
-                });
-                // Callback
-                try {
-                  cb(error4);
-                } catch (cbError) {
-                  this.conEstLog.error(cbError, {
-                    step,
-                  }, 'Unhandled callback Error in EstablishConnection');
-                }
-              } else {
-                // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
-                for (let i = 0; i !== sepaList.length; i += 1) {
-                  for (let j = 0; j !== this.konten.length; j += 1) {
-                    if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
-                      this.konten[j].unterKonto === sepaList[i].unterKonto) {
-                      this.konten[j].sepaData = sepaList[i];
-                      break;
-                    }
-                  }
-                }
-                // Fertig
-                this.conEstLog.debug({
-                  step,
-                  recv_sepa_list: sepaList,
-                }, 'Connection entirely established and got available accounts. Return.');
-                // Callback
-                try {
-                  cb(null);
-                } catch (cbError) {
-                  this.conEstLog.error(cbError, {
-                    step,
-                  }, 'Unhandled callback Error in EstablishConnection');
-                }
-              }
-            });
-          }
-        }
-      });
-    };
-    this.conEstLog.debug({
-      step: 1,
-    }, 'Start First Connection');
-    performStep(1);
   }
 
   private debugLogMsg = (txt, send) => {

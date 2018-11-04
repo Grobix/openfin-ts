@@ -1,0 +1,99 @@
+Arguments: 
+  D:\Program Files\nodejs\node.exe C:\Users\Christian\AppData\Roaming\npm\node_modules\yarn\bin\yarn.js install
+
+PATH: 
+  C:\WinAVR-20100110\bin;C:\WinAVR-20100110\utils\bin;C:\ProgramData\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files (x86)\Intel\OpenCL SDK\3.0\bin\x86;C:\Program Files (x86)\Intel\OpenCL SDK\3.0\bin\x64;D:\Program Files (x86)\Smart Projects\IsoBuster;D:\Program Files (x86)\MiKTeX 2.9\miktex\bin\;C:\Program Files (x86)\Skype\Phone\;C:\Program Files (x86)\GtkSharp\2.12\bin;C:\Go\bin;C:\Program Files (x86)\Microsoft VS Code\bin;C:\Program Files\Git\cmd;D:\Program Files\nodejs\;D:\Programme\KDiff3;C:\Program Files (x86)\Microsoft VS Code\bin;D:\Program Files\MongoDB\Server\3.6\bin;C:\Users\Christian\AppData\Local\Programs\Python\Python36;F:\Sonstige_Programme\bin;C:\Users\Christian\AppData\Local\Yarn\bin;C:\Users\Christian\AppData\Roaming\npm
+
+Yarn version: 
+  1.9.4
+
+Node version: 
+  11.0.0
+
+Platform: 
+  win32 x64
+
+Trace: 
+  Error: getaddrinfo ENOTFOUND fl-git.rhenus.de fl-git.rhenus.de:8081
+      at GetAddrInfoReqWrap.onlookup [as oncomplete] (dns.js:58:26)
+
+npm manifest: 
+  {
+    "name": "openfin-ts",
+    "version": "0.0.1",
+    "description": "Typescript compatible fints implementation",
+    "main": "out/index.js",
+    "types": "out/index.d.ts",
+    "scripts": {
+      "test": "jest --ci --silent",
+      "build": "tsc",
+      "watch": "tsc -w",
+      "prepublishOnly": "tsc"
+    },
+    "keywords": [
+      "FinTS",
+      "HBCI",
+      "js",
+      "client",
+      "Bank",
+      "Konto",
+      "Pin/Tan"
+    ],
+    "author": "Christian Kosmowski",
+    "license": "Apache-2.0",
+    "devDependencies": {
+      "@types/jest": "^23.3.2",
+      "body": "5.0.0",
+      "bunyan-live-logger": "^1.0.2",
+      "cors": "^2.8.4",
+      "express": "^4.16.4",
+      "jest": "^23.6.0",
+      "mocca": "^1.0.3",
+      "mocha": "^5.2.0",
+      "should": "^13.2.3",
+      "ts-jest": "^23.1.4",
+      "tslint": "^5.11.0",
+      "tslint-config-airbnb": "^5.11.0",
+      "typescript": "^3.0.3"
+    },
+    "dependencies": {
+      "@types/node": "^10.12.0",
+      "bunyan": "~1.8.9",
+      "encoding": "^0.1.12"
+    },
+    "jest": {
+      "roots": [
+        "<rootDir>/src",
+        "<rootDir>/test"
+      ],
+      "transform": {
+        "^.+\\.tsx?$": "ts-jest"
+      },
+      "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+      "moduleFileExtensions": [
+        "ts",
+        "tsx",
+        "js",
+        "jsx",
+        "json",
+        "node"
+      ],
+      "modulePathIgnorePatterns": [
+        "<rootDir>/out"
+      ]
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/owsas/typescript-module-template.git"
+    },
+    "bugs": {
+      "url": "https://github.com/owsas/typescript-module-template/issues"
+    },
+    "homepage": "https://github.com/owsas/typescript-module-template#readme"
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
