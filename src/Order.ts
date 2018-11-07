@@ -95,7 +95,8 @@ export default class Order {
         signInfo.tan = NULL;
         signInfo.sysId = this.client.sysId;
         signInfo.sigId = this.client.getNewSigId();
-
+        signInfo.pinVersion = this.client.upd.availableTanVerfahren[0];
+        msg.sign(signInfo);
         msg.init(this.client.dialogId, this.client.nextMsgNr, this.client.blz, this.client.kundenId);
         this.client.nextMsgNr += 1;
         // Fill in Segments
@@ -139,7 +140,7 @@ export default class Order {
               const HIRMG = recvMsg.selectSegByName('HIRMG')[0];
               for (const i in HIRMG.store.data) {
                 this.intGmsgList.push(HIRMG.store.data[i].data.data);
-                if (gmsgException == null && HIRMG.store.data[i].data.data[0].charAt(0) === '9') {
+                if (gmsgException == null && HIRMG.store.data[i].data.data[0].data.charAt(0) === '9') {
                   gmsgException = new Exceptions.OrderFailedException(HIRMG.store.data[i].data.data);
                 }
               }
@@ -166,10 +167,10 @@ export default class Order {
                   const HIRMS = segment;
                   HIRMS.store.data.forEach(deg => {
                     sendMessage.collectedMessages.push(deg.data);
-                    if (deg.data.data[0] === '3040') {
+                    if (deg.data.data[0].data === '3040') {
                       // Got an Aufsetzpunkt
                       try {
-                        sendMessage.aufsetzpunkt = deg.data[3].data;
+                        sendMessage.aufsetzpunkt = deg.data.data[3].data;
                       } catch (eee) {
                         sendMessage.aufsetzpunkt = null;
                       }
@@ -202,7 +203,7 @@ export default class Order {
 
   public checkMessagesOkay(messages, throwError) {
     for (const i in messages) {
-      const type = messages[i][0].charAt(0);
+      const type = messages[i].data[0].data.charAt(0);
       if (type === '9') {
         if (throwError) {
           throw new Exceptions.GVFailedAtKI(messages[i]);

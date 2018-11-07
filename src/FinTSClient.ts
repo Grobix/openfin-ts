@@ -824,15 +824,15 @@ export default class FinTSClient {
             const HISPA = reqSepaOrder.getSegByName(relatedRespSegments, 'HISPA');
             if (HISPA !== null) {
               for (let i = 0; i !== HISPA.store.data.length; i += 1) {
-                const verb = HISPA.getEl(i + 1) as DatenElementGruppe;
+                const verb = HISPA.getEl(i + 1).data as DatenElementGruppe;
                 const o = new Konto();
-                o.isSepa = verb.getEl(1).data === 'J';
-                o.iban = verb.getEl(2).data;
-                o.bic = verb.getEl(3).data;
-                o.kontoNr = verb.getEl(4).data;
-                o.unterKonto = verb.getEl(5).data;
-                o.countryCode = verb.getEl(6).data;
-                o.blz = verb.getEl(7).data;
+                o.isSepa = verb.getEl(1) === 'J';
+                o.iban = verb.getEl(2);
+                o.bic = verb.getEl(3);
+                o.kontoNr = verb.getEl(4);
+                o.unterKonto = verb.getEl(5);
+                o.countryCode = verb.getEl(6);
+                o.blz = verb.getEl(7);
                 sepaList.push(o);
               }
               try {

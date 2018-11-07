@@ -59,7 +59,7 @@ export default class Nachricht {
       // 		Schlüsselart			S	S: Signierschlüsse
       // 		Schlüsselnummer			0
       // 		Schlüsselversion		0
-      const signatureId = (this.signIt.sysId + '') === '0' ? 1 : this.signIt.sysId;
+      const signatureId = (this.signIt.sysId + '') === '0' ? 1 : this.signIt.sigId;
       this.signIt.blz = blz;
       this.signIt.kundenId = kundenId;
 
@@ -147,9 +147,9 @@ export default class Nachricht {
       }
     }
 
-    this.segments.forEach(segment => {
-      body += segment.transformForSend();
-    });
+    for (let i = 1; i !== this.segments.length; i += 1) {
+      body += this.segments[i].transformForSend();
+    }
 
     // Letztes segment erstellen
     if (this.signIt) {

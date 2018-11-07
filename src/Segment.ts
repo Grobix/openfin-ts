@@ -9,7 +9,7 @@ export default class Segment {
   public name: string = null;
   public nr: number | string;
   public version: number | string;
-  public bez: number | string = null;
+  public bez: number | string = 0;
 
   public init(name: string, nr: number | string, version: number | string, bez: number | string) {
     this.name = name;
@@ -23,7 +23,7 @@ export default class Segment {
     result += this.name; // Nr. 1 Segmentkennung an ..6 M 1
     result += ':' + this.nr; // Nr. 2 Segmentnummer num ..3 M 1 >=1
     result += ':' + this.version; // Nr. 3 Segmentversion GD num ..3 M 1
-    if (this.bez !== null) result += ':' + this.bez;
+    if (this.bez !== 0) result += ':' + this.bez;
     for (let i = 0; i !== this.store.data.length; i += 1) {
       if (this.store.data[i].data !== NULL) {
         if (this.store.data[i].desc === 1) {
