@@ -4,3 +4,4 @@ coverage/
 out/
 npm-debug.log
 .idea
+credentials.js

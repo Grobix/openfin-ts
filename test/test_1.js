@@ -46,6 +46,7 @@ try {
 var bunyan = require('bunyan')
 var live = require('bunyan-live-logger')
 var g_log = null
+var server;
 
 var logger = function (n) {
   if (g_log) {
@@ -105,7 +106,7 @@ describe('testserver', function () {
       })
     })
 
-    var server = http.createServer(app)
+    server = http.createServer(app)
     console.log('Listening at IP ' + ipaddr + ' on port ' + port)
     server.listen(port, ipaddr, function () {
       var addr = server.address()
@@ -133,6 +134,10 @@ describe('testserver', function () {
       }
     })
   })
+
+  after(function() {
+    server.close();
+  });
 
   it('Test 1 -.msgInitDialog', function (done) {
     debugger;

@@ -31,7 +31,8 @@
 var express = require('express')
 var http = require('http')
 var textBody = require('body')
-var FinTSClient = require('../')
+var FinTSClient = require('../out/FinTSClient').default
+var Exceptions = require('../out/Exceptions');
 var should = require('should')
 
 var previous_tests_ok = true
@@ -110,11 +111,11 @@ describe('test_real', function () {
     }
   })
 
-  it('Test 1 - MsgInitDialog', function (done) {
+  it('Test 1 - msgInitDialog', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 1'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
       if (error) {
         var pv = ''
         try {
@@ -130,11 +131,11 @@ describe('test_real', function () {
           throw error
         }
       }
-      client.bpd.should.have.property('vers_bpd')
-      client.upd.should.have.property('vers_upd')
-      client.sys_id.should.not.equal('')
+      client.bpd.should.have.property('versBpd')
+      client.upd.should.have.property('versUpd')
+      client.sysId.should.not.equal('')
       client.konten.should.be.an.Array
-      client.MsgCheckAndEndDialog(recvMsg, mocha_catcher(done, function (error, recvMsg2) {
+      client.msgCheckAndEndDialog(recvMsg, mocha_catcher(done, function (error, recvMsg2) {
         if (error) {
           throw error
         }
@@ -144,12 +145,12 @@ describe('test_real', function () {
     }))
   })
 
-  it('Test 2 - MsgInitDialog wrong user', function (done) {
+  it('Test 2 - msgInitDialog wrong user', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, 'wrong', '12345', credentials.bankenliste, logger('Test 2'))
     var old_url = client.dest_url
-    client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
-      client.MsgCheckAndEndDialog(recvMsg, function (error, recvMsg2) {})
+    client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+      client.msgCheckAndEndDialog(recvMsg, function (error, recvMsg2) {})
       if (error) {
         previous_tests_ok = true
         return done()
@@ -166,11 +167,11 @@ describe('test_real', function () {
         // login with good pin to reset bad counter
         var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('wrong_pin_test after'))
         var old_url = client.dest_url
-        client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+        client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
           if (error) {
             console.log(error)
           }
-          client.MsgCheckAndEndDialog(recvMsg, mocha_catcher(done, function (error, recvMsg2) {
+          client.msgCheckAndEndDialog(recvMsg, mocha_catcher(done, function (error, recvMsg2) {
             if (error) {
               console.log(error)
             }
@@ -182,13 +183,13 @@ describe('test_real', function () {
       }
     })
 
-    it('Test 3 - MsgInitDialog wrong pin', function (done) {
+    it('Test 3 - msgInitDialog wrong pin', function (done) {
       checkPreviousTests()
       test_performed = true
       var client = new FinTSClient(credentials.blz, credentials.user, '12345', credentials.bankenliste, logger('Test 3'))
       var old_url = client.dest_url
-      client.MsgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
-        client.MsgCheckAndEndDialog(recvMsg, function (error2, recvMsg2) {})
+      client.msgInitDialog(mocha_catcher(done, function (error, recvMsg, has_neu_url) {
+        client.msgCheckAndEndDialog(recvMsg, function (error2, recvMsg2) {})
         should(error).not.be.null
         previous_tests_ok = true
         done()
@@ -199,13 +200,13 @@ describe('test_real', function () {
   it('Test 6 - EstablishConnection', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 6'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {
-        client.MsgEndDialog(function (error, recvMsg2) {})
-        client.bpd.should.have.property('vers_bpd')
-        client.upd.should.have.property('vers_upd')
+        client.msgEndDialog(function (error, recvMsg2) {})
+        client.bpd.should.have.property('versBpd')
+        client.upd.should.have.property('versUpd')
         client.konten.should.be.an.Array
         previous_tests_ok = true
         done()
@@ -216,14 +217,14 @@ describe('test_real', function () {
   it('Test 7 - MsgGetKontoUmsaetze', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 7'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {
-        client.konten[0].sepa_data.should.not.equal(null)
-        client.MsgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.konten[0].sepaData.should.not.equal(null)
+        client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
-            if (error2 instanceof client.Exceptions.GVNotSupportedByKI &&
+            if (error2 instanceof Exceptions.Exceptions.GVNotSupportedByKI &&
               error2.gv_type == 'HIKAZ') {
               previous_tests_ok = true
             }
@@ -233,7 +234,7 @@ describe('test_real', function () {
             should(data).not.equal(null)
             data.should.be.an.Array
             // Testcase erweitern
-            client.MsgCheckAndEndDialog(rMsg, function (error, recvMsg2) {})
+            client.msgCheckAndEndDialog(rMsg, function (error, recvMsg2) {})
             previous_tests_ok = true
             done()
           }
@@ -245,13 +246,13 @@ describe('test_real', function () {
   it('Test 8 - MsgGetSaldo', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 8'))
-    client.EstablishConnection(mocha_catcher(done, function (error) {
+    client.establishConnection(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {
-        client.konten[0].sepa_data.should.not.equal(null)
-        client.MsgGetSaldo(client.konten[0].sepa_data, mocha_catcher(done, function (error2, rMsg, data) {
-          if (rMsg) client.MsgCheckAndEndDialog(rMsg, function (error, recvMsg2) {})
+        client.konten[0].sepaData.should.not.equal(null)
+        client.msgGetSaldo(client.konten[0].sepaData, mocha_catcher(done, function (error2, rMsg, data) {
+          if (rMsg) client.msgCheckAndEndDialog(rMsg, function (error, recvMsg2) {})
           if (error2) {
             throw error2
           } else {

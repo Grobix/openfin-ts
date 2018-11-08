@@ -626,4 +626,8 @@ module.exports = function () {
     }
     return true
   }
+
+  me.stop = function() {
+
+  }
 }
