@@ -72,7 +72,7 @@ export default class FinTSClient {
   private inConnection = false;
 
   private lastSignaturId = 1;
-  private konten: Konto[] = [];
+  public konten: Konto[] = [];
 
   constructor(public blz: string, public kundenId: string,
               public pin: string, public bankenList: any) {
@@ -557,7 +557,7 @@ export default class FinTSClient {
     }, true);
   }
 
-  public establishConnection = (cb) => {
+  public establishConnection(cb) {
     let protocolSwitch = false;
     let versStep = 1;
     const originalBpd = this.bpd.clone();
@@ -764,34 +764,18 @@ export default class FinTSClient {
     performStep(1);
   }
 
-  private beautifyBPD(bpd: BPD) {
-    const cbpd = bpd.clone();
-    cbpd.gvParameters = '...';
-    return cbpd;
-  }
-
-  private msgCheckAndEndDialog = (recvMsg, cb) => {
-    const hirmgS = recvMsg.selectSegByName('HIRMG');
-    for (const k in hirmgS) {
-      for (const i in (hirmgS[k].store.data)) {
-        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
-        if (ermsg === '9800') {
-          try {
-            cb(null, null);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
-              gv: 'HKEND',
-            }, 'Unhandled callback Error in HKEND');
-          }
-          return;
-        }
+  public convertUmsatzeArrayToListofAllTransactions(umsaetze) {
+    const result = [];
+    for (let i = 0; i !== umsaetze.length; i += 1) {
+      for (let a = 0; a !== umsaetze[i].saetze.length; a += 1) {
+        result.push(umsaetze[i].saetze[a]);
       }
     }
-    this.msgEndDialog(cb);
+    return result;
   }
 
   // SEPA kontoverbindung anfordern HKSPA, HISPA ist die antwort
-  private msgRequestSepa = (forKonto, cb) => {
+  public msgRequestSepa(forKonto, cb) {
     // Vars
     let processed = false;
     let v1 = null;
@@ -893,13 +877,39 @@ export default class FinTSClient {
     });
   }
 
+  private beautifyBPD(bpd: BPD) {
+    const cbpd = bpd.clone();
+    cbpd.gvParameters = '...';
+    return cbpd;
+  }
+
+  private msgCheckAndEndDialog(recvMsg, cb) {
+    const hirmgS = recvMsg.selectSegByName('HIRMG');
+    for (const k in hirmgS) {
+      for (const i in (hirmgS[k].store.data)) {
+        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
+        if (ermsg === '9800') {
+          try {
+            cb(null, null);
+          } catch (cbError) {
+            this.gvLog.error(cbError, {
+              gv: 'HKEND',
+            }, 'Unhandled callback Error in HKEND');
+          }
+          return;
+        }
+      }
+    }
+    this.msgEndDialog(cb);
+  }
+
   /*
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     from_date
     to_date		können null sein
     cb
   */
-  private msgGetKontoUmsaetze(konto: Konto, fromDate, toDate, cb) {
+  public msgGetKontoUmsaetze(konto: Konto, fromDate, toDate, cb) {
     let processed = false;
     let v7 = null;
     let v5 = null;
@@ -1003,16 +1013,6 @@ export default class FinTSClient {
         }
       }
     });
-  }
-
-  private convertUmsatzeArrayToListofAllTransactions = (umsaetze) => {
-    const result = [];
-    for (let i = 0; i !== umsaetze.length; i += 1) {
-      for (let a = 0; a !== umsaetze[i].saetze.length; a += 1) {
-        result.push(umsaetze[i].saetze[a]);
-      }
-    }
-    return result;
   }
 
   /*
