@@ -103,7 +103,7 @@ export default class MTParser {
     return this.msgss.map(msg => {
       const umsatz = new Umsatz();
       // Starten
-      for (let a = 0; a !== msg.length; a += 1) {
+      for (let a = 0; a < msg.length; a += 1) {
         switch (msg[a][0]) {
           case '20':
             umsatz.refnr = msg[a][1];
@@ -122,7 +122,7 @@ export default class MTParser {
             this.parseMT940_60a(umsatz, msg[a]);
             break;
           case '61': // Loop
-            this.parseMT940_loop(umsatz, msg, a);
+            a = this.parseMT940_loop(umsatz, msg, a);
             break;
           case '62F': // Endsaldo
           case '62M': // Zwischensaldo
@@ -150,7 +150,7 @@ export default class MTParser {
       let pos = 0;
       // 1. 61
       satz.datum = this.convertMTDateFormatToJS(msg[idx][1].substr(0, 6));
-      if (!'0123456789'.includes(msg[idx][1][6])) {
+      if ('0123456789'.includes(msg[idx][1][6])) {
         // optionales feld Buchungstag
         pos = 10;
       } else {
@@ -185,11 +185,10 @@ export default class MTParser {
       // TODO hier gibt es auch noch eine weiter bearbeitung
       umsatz.saetze.push(satz);
     }
-    idx += 1;
-    return idx;
+    return idx - 1;
   }
 
-  parseMT940_86(satz: Satz, rawVerwendungszweck) {
+  private parseMT940_86(satz: Satz, rawVerwendungszweck) {
 
     satz.isVerwendungszweckObject = rawVerwendungszweck.substr(0, 4).includes('?');
     if (satz.isVerwendungszweckObject) {

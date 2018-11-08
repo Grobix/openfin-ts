@@ -116,6 +116,7 @@ export default class Order {
               if (sendMessage.aufsetzpunktLoc.length <= 1) {
                 // direkt
                 sendMessage.segment.store.data[sendMessage.aufsetzpunktLoc[0] - 1].data = sendMessage.aufsetzpunkt;
+              } else {
                 // Unter DEG
                 extCb(new Exceptions.InternalError('Aufsetzpunkt Location is in DEG not supported yet.'), this, null);
                 return;

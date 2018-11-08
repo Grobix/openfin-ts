@@ -305,8 +305,8 @@ describe('testserver', function () {
       if (error) {
         done(new Error(error))
       } else {
-        client.konten[0].sepa_data.should.not.equal(null)
-        client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.konten[0].sepaData.should.not.equal(null)
+        client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
             done(new Error(error2))
           } else {
@@ -318,7 +318,7 @@ describe('testserver', function () {
             data[0].schlusssaldo.value.should.equal(1223.57)
             data[1].schlusssaldo.value.should.equal(1423.6)
             // Test converter
-            var u_list = client.ConvertUmsatzeArrayToListofAllTransactions(data)
+            var u_list = client.convertUmsatzeArrayToListofAllTransactions(data)
             should(u_list).not.equal(null)
             u_list.should.be.an.Array
             should(u_list[0]).not.be.undefined
@@ -347,8 +347,8 @@ describe('testserver', function () {
         if (error) {
           done(new Error(error))
         } else {
-          client.konten[0].sepa_data.should.not.equal(null)
-          client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+          client.konten[0].sepaData.should.not.equal(null)
+          client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
             if (error2) {
               done(new Error(error2))
             } else {
@@ -378,8 +378,8 @@ describe('testserver', function () {
       if (error) {
         done(new Error(error))
       } else {
-        client.konten[0].sepa_data.should.not.equal(null)
-        client.msgGetSaldo(client.konten[0].sepa_data, mocha_catcher(done, function (error2, rMsg, data) {
+        client.konten[0].sepaData.should.not.equal(null)
+        client.msgGetSaldo(client.konten[0].sepaData, mocha_catcher(done, function (error2, rMsg, data) {
           // TODO Better Test Case
           if (error2) {
             done(new Error(error2))
@@ -404,15 +404,15 @@ describe('testserver', function () {
         if (error) {
           done(new Error(error))
         } else {
-          client.bpd.should.have.property('vers_bpd', '78')
-          client.upd.should.have.property('vers_upd', '3')
-          client.sys_id.should.equal('DDDA10000000000000000000000A')
+          client.bpd.should.have.property('versBpd', '78')
+          client.upd.should.have.property('versUpd', '3')
+          client.sysId.should.equal('DDDA10000000000000000000000A')
           client.konten.should.be.an.Array
           client.konten.should.have.a.lengthOf(2)
           client.konten[0].iban.should.equal('DE111234567800000001')
-          should(client.konten[0].sepa_data).not.equal(null)
-          client.konten[0].sepa_data.iban.should.equal('DE111234567800000001')
-          client.konten[0].sepa_data.bic.should.equal('GENODE00TES')
+          should(client.konten[0].sepaData).not.equal(null)
+          client.konten[0].sepaData.iban.should.equal('DE111234567800000001')
+          client.konten[0].sepaData.bic.should.equal('GENODE00TES')
           done()
         }
       }))
@@ -430,8 +430,8 @@ describe('testserver', function () {
         done(new Error(error))
       } else {
         var error_checked_okay = false
-        client.konten[0].sepa_data.should.not.equal(null)
-        client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.konten[0].sepaData.should.not.equal(null)
+        client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
             done(new Error(error2))
           } else {
@@ -449,10 +449,10 @@ describe('testserver', function () {
         }))
         // das ist der eigentliche Test
         try {
-          client.msgGetKontoUmsaetze(client.konten[0].sepa_data, null, null, mocha_catcher(done, function (error2, rMsg, data) {}))
+          client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {}))
         } catch (error_to_check) {
           should(error_to_check).not.equal(null)
-          error_to_check.should.be.instanceOf(client.Exceptions.OutofSequenceMessageException)
+          error_to_check.should.be.instanceOf(Exceptions.Exceptions.OutofSequenceMessageException)
           error_checked_okay = true
         }
       }

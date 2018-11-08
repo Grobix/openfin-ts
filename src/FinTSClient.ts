@@ -899,23 +899,23 @@ export default class FinTSClient {
     to_date		können null sein
     cb
   */
-  private msgGetKontoUmsaetze(konto, fromDate, toDate, cb) {
+  private msgGetKontoUmsaetze(konto: Konto, fromDate, toDate, cb) {
     let processed = false;
     let v7 = null;
     let v5 = null;
     if (fromDate === null && toDate === null) {
       v5 = [
-        [konto.konto_nr, konto.unter_konto, konto.ctry_code, konto.blz], 'N',
+        [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N',
       ];
       v7 = [
-        [konto.iban, konto.bic, konto.konto_nr, konto.unter_konto, konto.ctry_code, konto.blz], 'N',
+        [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N',
       ];
     } else {
       v5 = [
-        [konto.konto_nr, konto.unter_konto, konto.ctry_code, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
+        [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
       ];
       v7 = [
-        [konto.iban, konto.bic, konto.konto_nr, konto.unter_konto, konto.ctry_code, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
+        [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
       ];
     }
     // Start
@@ -928,7 +928,7 @@ export default class FinTSClient {
           for (const i in relatedRespSegments) {
             if (relatedRespSegments[i].name === 'HIKAZ') {
               const HIKAZ = relatedRespSegments[i];
-              txt += HIKAZ.getEl(1);
+              txt += HIKAZ.getEl(1).data;
             }
           }
           const mtparse = new MTParser();
