@@ -7,19 +7,19 @@ import * as FinTSServer from '../dev/FinTSServer';
 export default class TestServer {
 
   private server: http.Server;
+  private fintsServer: FinTSServer;
 
   constructor(private bankenliste: any) {
   }
 
   public start(done: () => void) {
-    let myFINTSServer = null;
 
     // Start the Server
     const ipaddr: string = process.env.IP || '127.0.0.1'; // process.env.IP;
     const port: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000; // process.env.PORT;
     const app = express();
-    myFINTSServer = new FinTSServer();
-    myFINTSServer.my_debug_log = false;
+    this.fintsServer = new FinTSServer();
+    this.fintsServer.my_debug_log = false;
     app.get('/', (req, res) => {
       res.setHeader('Content-Type', 'text/html');
       res.send('Test FinTS Server - at /cgi-bin/hbciservlet und BLZ = 12345678');
@@ -33,7 +33,7 @@ export default class TestServer {
           return res.end('NO U');
         }
         res.setHeader('Content-Type', 'text/plain');
-        res.send(myFINTSServer.handleIncomeMessage(body));
+        res.send(this.fintsServer.handleIncomeMessage(body));
       });
     });
 
@@ -43,10 +43,22 @@ export default class TestServer {
       const addr = this.server.address() as AddressInfo;
       console.log('FinTS server running at:', addr.address + ':' + addr.port + '/cgi-bin/hbciservlet');
       this.bankenliste['12345678'].url = 'http://' + addr.address + ':' + addr.port + '/cgi-bin/hbciservlet';
-      myFINTSServer.my_url = this.bankenliste['12345678'].url;
-      myFINTSServer.my_host = addr.address + ':' + addr.port;
+      this.fintsServer.my_url = this.bankenliste['12345678'].url;
+      this.fintsServer.my_host = addr.address + ':' + addr.port;
       done();
     });
+  }
+
+  public setHikas2Mode(activated: boolean) {
+    this.fintsServer.hikas_2_mode = activated;
+  }
+
+  public setProtocolVersion(version: number) {
+    this.fintsServer.proto_version = version;
+  }
+
+  public getProtocolVersion() {
+    return this.fintsServer.proto_version;
   }
 
   public stop() {

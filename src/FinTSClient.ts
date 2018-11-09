@@ -590,7 +590,7 @@ export default class FinTSClient {
           // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
           // ==> Bezieht es sich auf das DE Nr. 3 ?
           const HIRMS = recvMsg.selectSegByNameAndBelongTo('HIRMS', 1)[0];
-          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).getEl(1) === '9120' && HIRMS.getEl(1).getEl(2) === '3') {
+          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === '9120' && HIRMS.getEl(1).data.getEl(2) === '3') {
             // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
             this.conEstLog.debug({
               step,
@@ -877,32 +877,6 @@ export default class FinTSClient {
     });
   }
 
-  private beautifyBPD(bpd: BPD) {
-    const cbpd = bpd.clone();
-    cbpd.gvParameters = '...';
-    return cbpd;
-  }
-
-  private msgCheckAndEndDialog(recvMsg, cb) {
-    const hirmgS = recvMsg.selectSegByName('HIRMG');
-    for (const k in hirmgS) {
-      for (const i in (hirmgS[k].store.data)) {
-        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
-        if (ermsg === '9800') {
-          try {
-            cb(null, null);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
-              gv: 'HKEND',
-            }, 'Unhandled callback Error in HKEND');
-          }
-          return;
-        }
-      }
-    }
-    this.msgEndDialog(cb);
-  }
-
   /*
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     from_date
@@ -1019,7 +993,7 @@ export default class FinTSClient {
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     cb
   */
-  private msgGetSaldo(konto: Konto, cb) {
+  public msgGetSaldo(konto: Konto, cb) {
     const reqSaldo = new Order(this);
     let processed = false;
     let v5 = null;
@@ -1119,6 +1093,32 @@ export default class FinTSClient {
         }
       }
     });
+  }
+
+  private beautifyBPD(bpd: BPD) {
+    const cbpd = bpd.clone();
+    cbpd.gvParameters = '...';
+    return cbpd;
+  }
+
+  private msgCheckAndEndDialog(recvMsg, cb) {
+    const hirmgS = recvMsg.selectSegByName('HIRMG');
+    for (const k in hirmgS) {
+      for (const i in (hirmgS[k].store.data)) {
+        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
+        if (ermsg === '9800') {
+          try {
+            cb(null, null);
+          } catch (cbError) {
+            this.gvLog.error(cbError, {
+              gv: 'HKEND',
+            }, 'Unhandled callback Error in HKEND');
+          }
+          return;
+        }
+      }
+    }
+    this.msgEndDialog(cb);
   }
 
   private debugLogMsg = (txt, send) => {

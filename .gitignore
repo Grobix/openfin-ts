@@ -5,3 +5,4 @@ out/
 npm-debug.log
 .idea
 credentials.js
+log_send_msg.txt

@@ -30,7 +30,7 @@
 // Dieser FinTS 3.0 Server ist nur für Testzwecke und gibt daher auch nur Dummy Daten zurück
 // der Funktionsumfang ist deutlich beschränkt und dient Primär des Tests des FinTSJSClients
 'use strict'
-var classes = require('../lib/Classes.js')
+var classes = require('./lib/Classes.js')
 var NULL = classes.NULL
 var Nachricht = classes.Nachricht
 var Helper = classes.Helper
