@@ -31,8 +31,8 @@
 var express = require('express')
 var http = require('http')
 var textBody = require('body')
-var FinTSClient = require('../out/FinTSClient').default
-var Exceptions = require('../out/Exceptions');
+var FinTSClient = require('../dist/FinTSClient').default
+var Exceptions = require('../dist/Exceptions');
 var should = require('should')
 
 var previous_tests_ok = true
