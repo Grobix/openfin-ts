@@ -1,4 +1,4 @@
-export default class SignInfo {
+export class SignInfo {
   public pin: string;
   public tan: string | any;
   public sysId = 0;

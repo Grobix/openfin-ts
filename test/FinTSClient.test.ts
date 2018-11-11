@@ -58,10 +58,17 @@ describe('The FinTSClient', () => {
     });
   });
 
-  it('ends the dialog', (done) => {
+  it('ends the dialog, closes secure', (done) => {
     const client = new FinTSClient('12345678', 'test1', '1234', bankenliste);
     client.msgInitDialog(makeCallback(done, () => {
       client.msgEndDialog(makeCallback(done, () => {
+        client.closeSecure();
+        expect(client.bpd).toBeNull();
+        expect(client.upd).toBeNull();
+        expect(client.konten).toBeNull();
+        expect(client.pin).toBeNull();
+        expect(client.tan).toBeNull();
+        expect(client.sysId).toBeNull();
         done();
       }));
     }));
@@ -195,6 +202,7 @@ describe('The FinTSClient', () => {
       } catch (errorToCheck) {
         expect(errorToCheck).not.toBeNull();
         expect(errorToCheck).toBeInstanceOf(Exceptions.OutofSequenceMessageException);
+        expect(errorToCheck.toString()).not.toBeNull();
         errorChecked = true;
       }
     }));

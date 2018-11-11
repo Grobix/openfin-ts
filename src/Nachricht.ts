@@ -1,10 +1,10 @@
-import Helper from './Helper';
+import { Helper } from './Helper';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
-import Segment from './Segment';
-import SignInfo from './SignInfo';
+import { Segment } from './Segment';
+import { SignInfo } from './SignInfo';
 
-export default class Nachricht {
+export class Nachricht {
 
   public segments: Segment[] = [];
   public segmentsCounter = 0;

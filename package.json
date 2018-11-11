@@ -62,7 +62,8 @@
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/dev/",
-      "/test/"
+      "/test/",
+      "/src/Exceptions.ts"
     ],
     "coverageDirectory": "coverage",
     "modulePathIgnorePatterns": [

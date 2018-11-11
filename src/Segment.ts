@@ -1,9 +1,9 @@
-import DatenElementGruppe from './DatenElementGruppe';
+import { DatenElementGruppe } from './DatenElementGruppe';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
-import DatenElement from './DatenElement';
+import { DatenElement } from './DatenElement';
 
-export default class Segment {
+export class Segment {
 
   public store = new DatenElementGruppe();
   public name: string = null;

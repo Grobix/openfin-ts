@@ -1,4 +1,4 @@
-export default class Pin {
+export class Pin {
   public minLength = 0;
   public maxLength: 100;
   public maxTanLength: 100;

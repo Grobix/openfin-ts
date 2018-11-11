@@ -1,4 +1,4 @@
-export default class Konto {
+export class Konto {
   public iban: string = '';
   public kontoNr: string = '';
   public unterKontoMerkmal = null;

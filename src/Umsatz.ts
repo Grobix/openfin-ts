@@ -1,5 +1,5 @@
-import {Saldo} from './Saldo';
-import Satz from './Satz';
+import { Saldo } from './Saldo';
+import { Satz } from './Satz';
 
 export class Umsatz {
   public refnr: string;

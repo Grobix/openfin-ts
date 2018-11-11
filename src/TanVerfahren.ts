@@ -1,4 +1,4 @@
-export default class TanVerfahren {
+export class TanVerfahren {
   public code = '999';
   public oneTwoStepVers = '1';
   public techId = 'PIN';

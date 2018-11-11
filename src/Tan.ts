@@ -1,6 +1,6 @@
-import TanVerfahren from './TanVerfahren';
+import { TanVerfahren } from './TanVerfahren';
 
-export default class Tan {
+export class Tan {
   public oneStepAvailable = true;
   public multipleTan = false;
   public hashType = '0';

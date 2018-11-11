@@ -1,8 +1,8 @@
-import DatenElement from './DatenElement';
+import { DatenElement } from './DatenElement';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
 
-export default class DatenElementGruppe {
+export class DatenElementGruppe {
 
   public data: DatenElement[] = [];
 

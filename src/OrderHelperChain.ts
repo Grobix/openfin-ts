@@ -1,6 +1,6 @@
 import Order from './Order';
 
-export default class OrderHelperChain {
+export class OrderHelperChain {
   private returner = {};
 
   constructor(private order: Order) {

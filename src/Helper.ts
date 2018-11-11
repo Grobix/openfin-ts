@@ -1,13 +1,13 @@
-import Betrag from './Betrag';
-import ByteVal from './ByteVal';
-import DatenElement from './DatenElement';
-import DatenElementGruppe from './DatenElementGruppe';
-import Nachricht from './Nachricht';
+import { Betrag } from './Betrag';
+import { ByteVal } from './ByteVal';
+import { DatenElement } from './DatenElement';
+import { DatenElementGruppe } from './DatenElementGruppe';
+import { Nachricht } from './Nachricht';
 import { Saldo } from './Saldo';
-import Segment from './Segment';
+import { Segment } from './Segment';
 import { UmsatzTyp } from './UmsatzTyp';
 
-export default class Helper {
+export class Helper {
 
   public static checkMsgsWithBelongToForId(msg: Nachricht, bez: any, id) {
     const array = msg.selectSegByNameAndBelongTo('HIRMS', bez);

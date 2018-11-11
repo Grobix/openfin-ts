@@ -1,3 +1,3 @@
-export default class ByteVal {
+export class ByteVal {
   constructor(public data) {}
 }

@@ -1,14 +1,14 @@
 import { Parser } from './Parser';
 import { Saldo } from './Saldo';
-import Satz from './Satz';
+import { Satz } from './Satz';
 import { Umsatz } from './Umsatz';
 import { UmsatzTyp } from './UmsatzTyp';
-import Verwendungszweck from './Verwendungszweck';
+import { Verwendungszweck } from './Verwendungszweck';
 
 // This Parser parses S.W.I.F.T MTXXX Formats
 // http://www.hbci-zka.de/dokumente/spezifikation_deutsch/fintsv3/FinTS_3.0_Messages_Finanzdatenformate_2010-08-06_final_version.pdf
 
-export default class MTParser {
+export class MTParser {
 
   private msgss: string[] = [];
 

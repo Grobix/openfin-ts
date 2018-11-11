@@ -1,6 +1,6 @@
 import * as bunyan from 'bunyan';
 
-export default class Logger {
+export class Logger {
 
   public static getLogger(area: string) {
     if (area === 'main') {

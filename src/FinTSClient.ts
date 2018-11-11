@@ -19,7 +19,7 @@ import SignInfo from './SignInfo';
 import TanVerfahren from './TanVerfahren';
 import UPD from './UPD';
 
-export default class FinTSClient {
+export class FinTSClient {
 
   public dialogId = 0;
   public nextMsgNr = 1;
@@ -30,19 +30,19 @@ export default class FinTSClient {
   public conLog = Logger.getLogger('con');
   public conEstLog = Logger.getLogger('conest');
   public gvLog = Logger.getLogger(('gv'));
-  public upd: UPD = new UPD();
+  public tan = NULL;
 
+  public upd: UPD = new UPD();
+  public konten: Konto[] = [];
   private bankenliste: { [index: string]: Bank };
   private ctry = 280;
-  private tan = NULL;
-  private debugMode = false;
 
+  private debugMode = false;
   private clientName = 'Open-FinTS-JS-Client';
   private clientVersion = 4;
-  private inConnection = false;
 
+  private inConnection = false;
   private lastSignaturId = 1;
-  public konten: Konto[] = [];
 
   constructor(public blz: string, public kundenId: string,
               public pin: string, public bankenList: any) {

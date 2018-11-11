@@ -1,4 +1,4 @@
-export default class UPD {
+export class UPD {
   public availableTanVerfahren: any[] = ['999'];
   public geschaeftsVorgGesp: boolean = true;
   public versUpd = '0';

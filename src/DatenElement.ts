@@ -1,7 +1,7 @@
-import DatenElementGruppe from './DatenElementGruppe';
+import { DatenElementGruppe } from './DatenElementGruppe';
 import { NullType } from './NULL';
 
-export default class DatenElement {
+export class DatenElement {
 
   constructor(public data: any, public desc: number) {}
 }

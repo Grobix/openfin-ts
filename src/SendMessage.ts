@@ -1,6 +1,6 @@
-import Segment from './Segment';
+import { Segment } from './Segment';
 
-export default class SendMessage {
+export class SendMessage {
   public action: any;
   public aufsetzpunkt: any = null;
   public aufsetzpunktLoc: any;

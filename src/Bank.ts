@@ -1,4 +1,4 @@
-export default class Bank {
+export class Bank {
   public blz: string;
   public url: string;
 }

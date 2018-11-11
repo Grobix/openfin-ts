@@ -1,7 +1,7 @@
 import Pin from './Pin';
 import Tan from './Tan';
 
-export default class BPD {
+export class BPD {
   public versBpd = '0';
   public bankName = '';
   public supportedVers: any[] = ['300'];

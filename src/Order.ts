@@ -1,14 +1,14 @@
 import { Exceptions } from './Exceptions';
-import FinTSClient from './FinTSClient';
-import Helper from './Helper';
-import Nachricht from './Nachricht';
+import { FinTSClient } from './FinTSClient';
+import { Helper } from './Helper';
+import { Nachricht } from './Nachricht';
 import { NULL } from './NULL';
-import OrderHelperChain from './OrderHelperChain';
-import Segment from './Segment';
-import SendMessage from './SendMessage';
-import SignInfo from './SignInfo';
+import { OrderHelperChain } from './OrderHelperChain';
+import { Segment } from './Segment';
+import { SendMessage } from './SendMessage';
+import { SignInfo } from './SignInfo';
 
-export default class Order {
+export class Order {
 
   public error = null;
 

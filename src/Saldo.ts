@@ -1,4 +1,4 @@
-import Betrag from './Betrag';
+import { Betrag } from './Betrag';
 import { UmsatzTyp } from './UmsatzTyp';
 
 export class Saldo {
