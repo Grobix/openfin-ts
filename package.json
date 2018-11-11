@@ -5,7 +5,7 @@
   "main": "out/index.js",
   "types": "out/index.d.ts",
   "scripts": {
-    "test": "jest --ci --coverage",
+    "test": "jest --coverage && cat ./coverage/lcov.info | yarn coveralls && rm -rf ./coverage",
     "build": "tsc",
     "watch": "tsc -w",
     "prepublishOnly": "tsc"
