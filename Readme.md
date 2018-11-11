@@ -1,6 +1,6 @@
 # openfin-ts
 
-[![Build Status](https://travis-ci.org/ckosmowski/openfin-ts.svg?branch=master)](https://travis-ci.org/ckosmowski/openfin-ts)
+[![Build Status](https://travis-ci.org/ckosmowski/openfin-ts.svg?branch=master)](https://travis-ci.org/ckosmowski/openfin-ts) [![Coverage Status](https://coveralls.io/repos/github/ckosmowski/openfin-ts/badge.svg?branch=master)](https://coveralls.io/github/ckosmowski/openfin-ts?branch=master)
 
 Typescript compatible fints implementation
 
