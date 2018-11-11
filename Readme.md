@@ -1,5 +1,7 @@
 # openfin-ts
 
+[![Build Status](https://travis-ci.org/ckosmowski/openfin-ts.svg?branch=master)](https://travis-ci.org/ckosmowski/openfin-ts)
+
 Typescript compatible fints implementation
 
 ## Install
