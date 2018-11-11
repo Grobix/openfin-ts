@@ -11,10 +11,6 @@ export default class OrderHelperChain {
       for (const i in v) {
         this.returner[v[i]] = cb;
       }
-    } else if (v) {
-      this.returner[v] = cb;
-    } else {
-      throw new Error('Development Error ' + v + ' not defined');
     }
     return this;
   }
