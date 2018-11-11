@@ -1,9 +1,9 @@
 {
   "name": "openfin-ts",
   "version": "0.0.1",
-  "description": "Typescript compatible fints implementation",
-  "main": "out/index.js",
-  "types": "out/index.d.ts",
+  "description": "TypeScript FinTS implementation.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "jest --coverage && cat ./coverage/lcov.info | yarn coveralls && rm -rf ./coverage",
     "build": "tsc",
@@ -23,7 +23,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/jest": "^23.3.2",
-    "body": "5.0.0",
+    "body": "5.1",
     "bunyan-live-logger": "^1.0.2",
     "cors": "^2.8.4",
     "express": "^4.16.4",
@@ -59,7 +59,11 @@
       "json",
       "node"
     ],
-    "coveragePathIgnorePatterns": ["/node_modules/","/dev/","/test/"],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/dev/",
+      "/test/"
+    ],
     "coverageDirectory": "coverage",
     "modulePathIgnorePatterns": [
       "<rootDir>/out"
