@@ -1,4 +1,4 @@
-import DatenElementGruppe from './DatenElementGruppe';
+import { DatenElementGruppe } from './DatenElementGruppe';
 
 export namespace Exceptions {
 

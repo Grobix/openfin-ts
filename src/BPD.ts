@@ -1,5 +1,5 @@
-import Pin from './Pin';
-import Tan from './Tan';
+import { Pin } from './Pin';
+import { Tan } from './Tan';
 
 export class BPD {
   public versBpd = '0';

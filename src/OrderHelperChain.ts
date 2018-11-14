@@ -1,4 +1,4 @@
-import Order from './Order';
+import { Order } from './Order';
 
 export class OrderHelperChain {
   private returner = {};

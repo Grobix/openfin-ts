@@ -1,5 +1,5 @@
 import { Exceptions } from '../src/Exceptions';
-import FinTSClient from '../src/FinTSClient';
+import { FinTSClient } from '../src/FinTSClient';
 import { Saldo } from '../src/Saldo';
 import { Umsatz } from '../src/Umsatz';
 import { makeCallback } from './TestHelpers';
@@ -100,7 +100,7 @@ describe('The FinTSClient', () => {
         done();
       });
     }));
-  });
+  }, 60000);
 
   it('establishes a connection', (done) => {
     const client = new FinTSClient('12345678', 'test1', '1234', bankenliste);

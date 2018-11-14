@@ -3,21 +3,21 @@ import { ClientRequest } from 'http';
 import * as http from 'http';
 import * as https from 'https';
 import * as url from 'url';
-import Bank from './Bank';
-import BPD from './BPD';
-import DatenElementGruppe from './DatenElementGruppe';
+import { Bank } from './Bank';
+import { BPD } from './BPD';
+import { DatenElementGruppe } from './DatenElementGruppe';
 import { Exceptions } from './Exceptions';
-import Helper from './Helper';
-import Konto from './Konto';
-import Logger from './Logger';
-import MTParser from './MTParser';
-import Nachricht from './Nachricht';
+import { Helper } from './Helper';
+import { Konto } from './Konto';
+import { Logger } from './Logger';
+import { MTParser } from './MTParser';
+import { Nachricht } from './Nachricht';
 import { NULL } from './NULL';
-import Order from './Order';
-import Segment from './Segment';
-import SignInfo from './SignInfo';
-import TanVerfahren from './TanVerfahren';
-import UPD from './UPD';
+import { Order } from './Order';
+import { Segment } from './Segment';
+import { SignInfo } from './SignInfo';
+import { TanVerfahren } from './TanVerfahren';
+import { UPD } from './UPD';
 
 export class FinTSClient {
 
