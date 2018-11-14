@@ -1,4 +1,3 @@
-export * from './Bank';
 export * from './Betrag';
 export * from './BPD';
 export * from './ByteVal';

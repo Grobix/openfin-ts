@@ -3,7 +3,6 @@ import { ClientRequest } from 'http';
 import * as http from 'http';
 import * as https from 'https';
 import * as url from 'url';
-import { Bank } from './Bank';
 import { BPD } from './BPD';
 import { DatenElementGruppe } from './DatenElementGruppe';
 import { Exceptions } from './Exceptions';
@@ -34,7 +33,6 @@ export class FinTSClient {
 
   public upd: UPD = new UPD();
   public konten: Konto[] = [];
-  private bankenliste: { [index: string]: Bank };
   private ctry = 280;
 
   private debugMode = false;
@@ -44,8 +42,8 @@ export class FinTSClient {
   private inConnection = false;
   private lastSignaturId = 1;
 
-  constructor(public blz: string, public kundenId: string,
-              public pin: string, public bankenList: any) {
+  constructor(public blz: string, public bankUrl: string, public kundenId: string,
+              public pin: string) {
     this.kundenId = Helper.escapeUserString(kundenId);
     this.pin = Helper.escapeUserString(pin);
     this.clear();
@@ -57,15 +55,8 @@ export class FinTSClient {
     this.sysId = 0;
     this.lastSignaturId = 1;
     this.bpd = new BPD();
-
-    try {
-      this.bpd.url = this.bankenList === undefined ? this.bankenliste['' + this.blz].url : this.bankenList['' + this.blz].url;
-    } catch (e) {
-      throw new Exceptions.MissingBankConnectionDataException(this.blz);
-    }
-
+    this.bpd.url = this.bankUrl;
     this.upd = new UPD();
-
     this.konten = [];
   }
 
