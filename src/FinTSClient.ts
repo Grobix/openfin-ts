@@ -516,8 +516,6 @@ export class FinTSClient {
   }
 
   public establishConnection(cb) {
-    let protocolSwitch = false;
-    let versStep = 1;
     const originalBpd = this.bpd.clone();
     originalBpd.clone = this.bpd.clone;
     const originalUpd = this.upd.clone();
@@ -544,8 +542,6 @@ export class FinTSClient {
               hirms: HIRMS,
             }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
             this.protoVersion = 220;
-            versStep = 2;
-            protocolSwitch = true;
             this.clear();
             performStep(1);
           } else {
