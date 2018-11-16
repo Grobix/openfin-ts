@@ -25,7 +25,7 @@ export class Nachricht {
     // this is called wenn es ein outgoing message ist
     this.messageNumber = ongoingNumber;
     const seg = new Segment();
-    seg.init('HNHBK', 1, '3', 0);
+    seg.init(SegmentName.MESSAGE_HEADER, 1, '3', 0);
     this.addSeg(seg);
     seg.store.addDE(Helper.getNrWithLeadingNulls(0, 12)); // Länge
     seg.store.addDE(this.protoVersion + ''); // Version

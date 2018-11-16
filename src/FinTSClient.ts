@@ -212,7 +212,7 @@ export class FinTSClient {
           if (Helper.checkMsgsWithBelongToForId(recvMsg, HKVVB.nr, '0020')) {
             try {
               // 1. Dialog ID zuweisen
-              this.dialogId = recvMsg.getSegmentByName('HNHBK').getEl(3).data;
+              this.dialogId = recvMsg.getSegmentByName(SegmentName.MESSAGE_HEADER).getEl(3).data;
               // 2. System Id
               if (!this.isAnonymous() && this.sysId === 0) {
                 this.sysId = recvMsg.getSegmentByNameAndReference('HISYN', syn).getEl(1).data;
@@ -537,7 +537,7 @@ export class FinTSClient {
           // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
           // ==> Bezieht es sich auf das DE Nr. 3 ?
           const HIRMS = recvMsg.getSegmentByNameAndReference(SegmentName.RETURN_STATUS_SEGMENTS, 1);
-          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === '9120' && HIRMS.getEl(1).data.getEl(2) === '3') {
+          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === ReturnCode.ERROR_UNEXPECTED && HIRMS.getEl(1).data.getEl(2) === '3') {
             // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
             this.conEstLog.debug({
               step,
