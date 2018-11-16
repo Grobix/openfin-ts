@@ -13,12 +13,12 @@ import { MTParser } from './MTParser';
 import { Nachricht } from './Nachricht';
 import { NULL } from './NULL';
 import { Order } from './Order';
+import { ReturnCode } from './ReturnCode';
 import { Segment } from './Segment';
+import { SegmentName } from './SegmentName';
 import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
 import { UPD } from './UPD';
-import { ReturnCode } from './ReturnCode';
-import { SegmentName } from './SegmentName';
 
 export class FinTSClient {
 
@@ -161,7 +161,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  };
+  }
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -207,24 +207,19 @@ export class FinTSClient {
         }
       } else {
         // Prüfen ob Erfolgreich
-        let HIRMG: Segment = null;
-        try {
-          HIRMG = recvMsg.getSegmentByName('HIRMG')[0];
-        } catch (e) {
-          // nothing
-        }
-        if (HIRMG !== null && (HIRMG.getEl(1).data.getElString(1) === '0010' || HIRMG.getEl(1).data.getElString(1) === '3060')) {
+        const HIRMG = recvMsg.getSegmentByName(SegmentName.RETURN_STATUS_MESSAGE);
+        if (HIRMG && (HIRMG.getEl(1).data.getElString(1) === '0010' || HIRMG.getEl(1).data.getElString(1) === '3060')) {
           if (Helper.checkMsgsWithBelongToForId(recvMsg, HKVVB.nr, '0020')) {
             try {
               // 1. Dialog ID zuweisen
-              this.dialogId = recvMsg.getSegmentByName('HNHBK')[0].getEl(3).data;
+              this.dialogId = recvMsg.getSegmentByName('HNHBK').getEl(3).data;
               // 2. System Id
               if (!this.isAnonymous() && this.sysId === 0) {
-                this.sysId = recvMsg.getSegmentByNameAndReference('HISYN', syn)[0].getEl(1).data;
+                this.sysId = recvMsg.getSegmentByNameAndReference('HISYN', syn).getEl(1).data;
               }
               // 3. Möglicherweise neue kommunikationsdaten
-              let HIKOM = recvMsg.getSegmentByName('HIKOM');
-              HIKOM = HIKOM.length > 0 ? HIKOM[0] : null;
+              const HIKOMS = recvMsg.getSegmentsByName('HIKOM');
+              const HIKOM = HIKOMS.length > 0 ? HIKOMS[0] : null;
               let newUrl = this.bpd.url;
               if (HIKOM) {
                 for (let i = 2; i < HIKOM.store.data.length; i += 1) {
@@ -246,7 +241,7 @@ export class FinTSClient {
               }
               // 4. Mögliche KontoInformationen
               if (this.konten.length === 0) {
-                const kontoList = recvMsg.getSegmentByName('HIUPD');
+                const kontoList = recvMsg.getSegmentsByName('HIUPD');
                 kontoList.forEach(kontodata => {
                   const konto = new Konto();
                   konto.iban = kontodata.getEl(2).data;
@@ -266,7 +261,7 @@ export class FinTSClient {
               // 5. Analysiere BPD
               try {
                 // 5.1 Vers
-                const HIBPA = recvMsg.getSegmentByName('HIBPA')[0];
+                const HIBPA = recvMsg.getSegmentsByName('HIBPA')[0];
                 this.bpd.versBpd = HIBPA.getEl(1).data;
                 // 5.2 sonst
                 this.bpd.bankName = HIBPA.getEl(3).data;
@@ -280,7 +275,7 @@ export class FinTSClient {
               if (this.protoVersion === 300) {
                 try {
                   // 5.3 Pins
-                  const pinData = recvMsg.getSegmentByName('HIPINS')[0].getEl(4).data;
+                  const pinData = recvMsg.getSegmentsByName('HIPINS')[0].getEl(4).data;
                   this.bpd.pin.minLength = pinData.getEl(1);
                   this.bpd.pin.maxLength = pinData.getEl(2);
                   this.bpd.pin.maxTanLength = pinData.getEl(3);
@@ -298,11 +293,11 @@ export class FinTSClient {
                   }, 'Error while analyse HIPINS');
                 }
               } else {
-                let pinDataSpk = recvMsg.getSegmentByName('DIPINS');
-                if (pinDataSpk.length > 0) {
+                const pinDataSpks = recvMsg.getSegmentsByName('DIPINS');
+                if (pinDataSpks.length > 0) {
                   try {
                     // 5.3 Pins
-                    pinDataSpk = pinDataSpk[0];
+                    const pinDataSpk = pinDataSpks[0];
                     /* this.bpd.pin.minLength 		= ;
                     this.bpd.pin.maxLength 			= ;
                     this.bpd.pin.maxTanLength 		= ;
@@ -328,37 +323,37 @@ export class FinTSClient {
               }
               try {
                 // 5.4 Tan
-                const HITANS = recvMsg.getSegmentByName('HITANS')[0];
-                if (HITANS.vers === 5) {
-                  const tanData = HITANS.getEl(4);
+                const HITANS = recvMsg.getSegmentsByName('HITANS')[0];
+                if (HITANS.version === '5') {
+                  const tanData = HITANS.getEl(4) as DatenElementGruppe;
                   this.bpd.tan.oneStepAvailable = tanData.getEl(1).toUpperCase() === 'J';
                   this.bpd.tan.multipleTan = tanData.getEl(2).toUpperCase() === 'J';
                   this.bpd.tan.hashType = tanData.getEl(3);
                   this.bpd.tan.tanVerfahren = {};
-                  for (let i = 3; i < tanData.data.length; i += 1) {
+                  for (let i = 4; i <= tanData.data.length; i += 1) {
                     const tanVerfahren = new TanVerfahren();
-                    tanVerfahren.code = tanData.data[i];
-                    tanVerfahren.oneTwoStepVers = tanData.data[i + 1]; // "1": Einschrittverfahren, "2": Zweischritt
-                    tanVerfahren.techId = tanData.data[i + 2];
-                    tanVerfahren.zkaTanVerfahren = tanData.data[i + 3];
-                    tanVerfahren.versZkaTanVerfahren = tanData.data[i + 4];
-                    tanVerfahren.desc = tanData.data[i + 5];
-                    tanVerfahren.maxLenTan = tanData.data[i + 6];
-                    tanVerfahren.tanAlphanum = tanData.data[i + 7] === '2';
-                    tanVerfahren.txtRueckwert = tanData.data[i + 8];
-                    tanVerfahren.maxLenRueckwert = tanData.data[i + 9];
-                    tanVerfahren.anzTanlist = tanData.data[i + 10];
-                    tanVerfahren.multiTan = tanData.data[i + 11].toUpperCase() === 'J';
-                    tanVerfahren.tanZeitDiaBez = tanData.data[i + 12];
-                    tanVerfahren.tanListNrReq = tanData.data[i + 13];
-                    tanVerfahren.auftragsstorno = tanData.data[i + 14].toUpperCase() === 'J';
-                    tanVerfahren.smsAbuKontoReq = tanData.data[i + 15];
-                    tanVerfahren.auftragKonto = tanData.data[i + 16];
-                    tanVerfahren.challengeClassReq = tanData.data[i + 17].toUpperCase() === 'J';
-                    tanVerfahren.challengeStructured = tanData.data[i + 18].toUpperCase() === 'J';
-                    tanVerfahren.initialisierungsMod = tanData.data[i + 19];
-                    tanVerfahren.bezTanMedReq = tanData.data[i + 20];
-                    tanVerfahren.anzSupportedTanVers = tanData.data[i + 21];
+                    tanVerfahren.code = tanData.getEl(i);
+                    tanVerfahren.oneTwoStepVers = tanData.getEl(i + 1); // "1": Einschrittverfahren, "2": Zweischritt
+                    tanVerfahren.techId = tanData.getEl(i + 2);
+                    tanVerfahren.zkaTanVerfahren = tanData.getEl(i + 3);
+                    tanVerfahren.versZkaTanVerfahren = tanData.getEl(i + 4);
+                    tanVerfahren.desc = tanData.getEl(i + 5);
+                    tanVerfahren.maxLenTan = tanData.getEl(i + 6);
+                    tanVerfahren.tanAlphanum = tanData.getEl(i + 7) === '2';
+                    tanVerfahren.txtRueckwert = tanData.getEl(i + 8);
+                    tanVerfahren.maxLenRueckwert = tanData.getEl(i + 9);
+                    tanVerfahren.anzTanlist = tanData.getEl(i + 10);
+                    tanVerfahren.multiTan = tanData.getEl(i + 11).toUpperCase() === 'J';
+                    tanVerfahren.tanZeitDiaBez = tanData.getEl(i + 12);
+                    tanVerfahren.tanListNrReq = tanData.getEl(i + 13);
+                    tanVerfahren.auftragsstorno = tanData.getEl(i + 14).toUpperCase() === 'J';
+                    tanVerfahren.smsAbuKontoReq = tanData.getEl(i + 15);
+                    tanVerfahren.auftragKonto = tanData.getEl(i + 16);
+                    tanVerfahren.challengeClassReq = tanData.getEl(i + 17).toUpperCase() === 'J';
+                    tanVerfahren.challengeStructured = tanData.getEl(i + 18).toUpperCase() === 'J';
+                    tanVerfahren.initialisierungsMod = tanData.getEl(i + 19);
+                    tanVerfahren.bezTanMedReq = tanData.getEl(i + 20);
+                    tanVerfahren.anzSupportedTanVers = tanData.getEl(i + 21);
 
                     // tanVerfahren.challange_value_req = tanData.data[i+14].toUpperCase()=="J";
                     this.bpd.tan.tanVerfahren[tanVerfahren.code] = tanVerfahren;
@@ -372,7 +367,7 @@ export class FinTSClient {
               }
               // 6. Analysiere UPD
               try {
-                const HIUPA = recvMsg.getSegmentByName('HIUPA')[0];
+                const HIUPA = recvMsg.getSegmentsByName('HIUPA')[0];
                 this.upd.versUpd = HIUPA.getEl(3).data;
                 this.upd.geschaeftsVorgGesp = (HIUPA.getEl(4) && HIUPA.getEl(4).data === '0'); // UPD-Verwendung
               } catch (ee) {
@@ -518,7 +513,7 @@ export class FinTSClient {
         }, 'Unhandled callback Error in HKEND');
       }
     }, true);
-  };
+  }
 
   public establishConnection(cb) {
     let protocolSwitch = false;
@@ -541,7 +536,7 @@ export class FinTSClient {
           // ==> Ist ein HIRMS welches auf HNHBK mit Nr. 1 referenziert vorhanden ?
           // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
           // ==> Bezieht es sich auf das DE Nr. 3 ?
-          const HIRMS = recvMsg.getSegmentByNameAndReference('HIRMS', 1)[0];
+          const HIRMS = recvMsg.getSegmentByNameAndReference(SegmentName.RETURN_STATUS_SEGMENTS, 1);
           if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === '9120' && HIRMS.getEl(1).data.getEl(2) === '3') {
             // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
             this.conEstLog.debug({
@@ -1029,5 +1024,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  };
+  }
 }

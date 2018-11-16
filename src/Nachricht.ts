@@ -212,24 +212,32 @@ export class Nachricht {
     return seg.nr;
   }
 
-  public isSigned = function () {
-    return this.getSegmentByName('HNSHK').length === 1;
-  };
+  public isSigned() {
+    return this.getSegmentsByName('HNSHK').length === 1;
+  }
 
-  public getSegmentByName = function (name) {
+  public getSegmentsByName(name) {
     return this.segments.filter(segment => segment.name === name);
-  };
+  }
 
-  public getSegmentByReference = function (belongTo) {
+  public getSegmentByReference(belongTo) {
     return this.segments.filter(segment => segment.referencedSegment === belongTo);
-  };
+  }
 
-  public getSegmentByNameAndReference = function (name, referencedSegment) {
+  public getSegmentsByNameAndReference(name, referencedSegment): Segment[] {
     return this.segments.filter(segment => segment.name === name && segment.referencedSegment === referencedSegment);
-  };
+  }
+
+  public getSegmentByNameAndReference(name, referencedSegment): Segment {
+    return this.segments.find(segment => segment.name === name && segment.referencedSegment === referencedSegment);
+  }
+
+  public getSegmentByName(name: string) {
+    return this.segments.find(segment => segment.name === name);
+  }
 
   public wasCanceled() {
-    const statusSegments = this.getSegmentByName(SegmentName.RETURN_STATUS_MESSAGE);
+    const statusSegments = this.getSegmentsByName(SegmentName.RETURN_STATUS_MESSAGE);
     const canceledSegment = statusSegments.find(statusSegment => {
       const canceledElement = statusSegment.store.data.find(dataElement => {
         return dataElement.data.getEl(1) === ReturnCode.ERROR_CANCELED;
