@@ -43,7 +43,7 @@ export class Helper {
 
   public static newSegFromArrayWithBez = function (name, vers, bez, ar) {
     const seg = this.newSegFromArray(name, vers, ar);
-    seg.bez = bez;
+    seg.referencedSegment = bez;
     return seg;
   };
 

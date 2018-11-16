@@ -17,6 +17,8 @@ import { Segment } from './Segment';
 import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
 import { UPD } from './UPD';
+import { ReturnCode } from './ReturnCode';
+import { SegmentName } from './SegmentName';
 
 export class FinTSClient {
 
@@ -159,7 +161,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  }
+  };
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -516,7 +518,7 @@ export class FinTSClient {
         }, 'Unhandled callback Error in HKEND');
       }
     }, true);
-  }
+  };
 
   public establishConnection(cb) {
     let protocolSwitch = false;
@@ -529,20 +531,9 @@ export class FinTSClient {
     // 2. Verbindung mit richtiger URL um auf jeden Fall (auch bei geänderter URL) die richtigen BPD zu laden + Tan Verfahren herauszufinden
     // 3. Abschließende Verbindung aufbauen
     const performStep = (step) => {
-      this.msgInitDialog((error, recvMsg, hastNeuUrl) => {
+      this.msgInitDialog((error, recvMsg, hasNewUrl) => {
         if (error) {
-          this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-            if (error2) {
-              this.conEstLog.error({
-                step,
-                error: error2,
-              }, 'Connection close failed.');
-            } else {
-              this.conEstLog.debug({
-                step,
-              }, 'Connection closed okay.');
-            }
-          });
+          this.endDialogIfNotCanceled(recvMsg);
           // Wurde Version 300 zuerst probiert, kann noch auf Version 220 gewechselt werden, dazu:
           // Prüfen ob aus der Anfrage Nachricht im Nachrichtenheader(=HNHBK) die Version nicht akzeptiert wurde
           // HNHBK ist immer Segment Nr. 1
@@ -594,18 +585,7 @@ export class FinTSClient {
             this.upd = originalUpd.clone();
             const origSysId = this.sysId;
             const origLastSig = this.lastSignaturId;
-            this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-              if (error2) {
-                this.conEstLog.error({
-                  step,
-                  error: error2,
-                }, 'Connection close failed.');
-              } else {
-                this.conEstLog.debug({
-                  step,
-                }, 'Connection closed okay.');
-              }
-            });
+            this.endDialogIfNotCanceled(recvMsg);
             this.clear();
             this.bpd.url = neuUrl;
             this.upd.availableTanVerfahren[0] = neuSigMethod;
@@ -615,7 +595,7 @@ export class FinTSClient {
             originalUpd.availableTanVerfahren[0] = neuSigMethod;
           }
 
-          if (hastNeuUrl) {
+          if (hasNewUrl) {
             if (step === 1) {
               // Im Step 1 ist das eingeplant, dass sich die URL ändert
               this.conEstLog.debug({
@@ -627,18 +607,7 @@ export class FinTSClient {
               if (step === 3) {
                 this.bpd = originalBpd.clone();
                 this.upd = originalUpd.clone();
-                this.msgCheckAndEndDialog(recvMsg, (error2, recvMsg2) => {
-                  if (error2) {
-                    this.conEstLog.error({
-                      step,
-                      error: error2,
-                    }, 'Connection close failed.');
-                  } else {
-                    this.conEstLog.debug({
-                      step,
-                    }, 'Connection closed okay.');
-                  }
-                });
+                this.endDialogIfNotCanceled(recvMsg);
               }
               this.conEstLog.error({
                 step,
@@ -669,18 +638,7 @@ export class FinTSClient {
                 this.conEstLog.error({
                   step,
                 }, 'Error getting the available accounts.');
-                this.msgCheckAndEndDialog(recvMsg, (error3) => {
-                  if (error3) {
-                    this.conEstLog.error({
-                      step,
-                      error: error3,
-                    }, 'Connection close failed.');
-                  } else {
-                    this.conEstLog.debug({
-                      step,
-                    }, 'Connection closed okay.');
-                  }
-                });
+                this.endDialogIfNotCanceled(recvMsg);
                 // Callback
                 try {
                   cb(error4);
@@ -1062,24 +1020,30 @@ export class FinTSClient {
     return cbpd;
   }
 
-  private msgCheckAndEndDialog(recvMsg, cb) {
-    const hirmgS = recvMsg.selectSegByName('HIRMG');
-    for (const k in hirmgS) {
-      for (const i in (hirmgS[k].store.data)) {
-        const ermsg = hirmgS[k].store.data[i].data.getEl(1);
-        if (ermsg === '9800') {
-          try {
-            cb(null, null);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
-              gv: 'HKEND',
-            }, 'Unhandled callback Error in HKEND');
+  private endDialogIfNotCanceled(message: Nachricht): Promise<Nachricht> {
+    const promise: Promise<Nachricht> = new Promise((resolve, reject) => {
+      if (message.wasCanceled()) {
+        resolve();
+      } else {
+        this.msgEndDialog((err, endMessage: Nachricht) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(endMessage);
           }
-          return;
-        }
+        });
       }
-    }
-    this.msgEndDialog(cb);
+    });
+
+    return promise.then((promiseMessage: Nachricht) => {
+      this.conEstLog.debug('Connection closed okay.');
+      return promiseMessage;
+    }).catch(err => {
+      this.conEstLog.error({
+        error: err,
+      }, 'Connection close failed.');
+      throw err;
+    });
   }
 
   private debugLogMsg = (txt, send) => {

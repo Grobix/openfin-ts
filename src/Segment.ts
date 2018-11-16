@@ -1,21 +1,21 @@
+import { DatenElement } from './DatenElement';
 import { DatenElementGruppe } from './DatenElementGruppe';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
-import { DatenElement } from './DatenElement';
 
 export class Segment {
 
   public store = new DatenElementGruppe();
   public name: string = null;
-  public nr: number | string;
-  public version: number | string;
-  public bez: number | string = 0;
+  public nr: number;
+  public version: string;
+  public referencedSegment: number = 0;
 
-  public init(name: string, nr: number | string, version: number | string, bez: number | string) {
+  public init(name: string, nr: number, version: string, referencedSegment: number) {
     this.name = name;
     this.nr = nr;
     this.version = version;
-    this.bez = bez;
+    this.referencedSegment = referencedSegment;
   }
 
   public transformForSend(): string {
@@ -23,7 +23,7 @@ export class Segment {
     result += this.name; // Nr. 1 Segmentkennung an ..6 M 1
     result += ':' + this.nr; // Nr. 2 Segmentnummer num ..3 M 1 >=1
     result += ':' + this.version; // Nr. 3 Segmentversion GD num ..3 M 1
-    if (this.bez !== 0) result += ':' + this.bez;
+    if (this.referencedSegment !== 0) result += ':' + this.referencedSegment;
     for (let i = 0; i !== this.store.data.length; i += 1) {
       if (this.store.data[i].data !== NULL) {
         if (this.store.data[i].desc === 1) {
@@ -61,7 +61,7 @@ export class Segment {
     startPos = parser.getCurrentPos();
     parser.setMarkerWithCurrentPos('start');
     if (parser.gotoNextValidChar(':')) {
-      this.nr = parser.getTextFromMarkerToCurrentPos('start');
+      this.nr = parseInt(parser.getTextFromMarkerToCurrentPos('start'), 10);
     } else {
       throw new ParseError('Seg', 'Segmentnummer fehlt!', startPos);
     }
@@ -82,7 +82,7 @@ export class Segment {
       startPos = parser.getCurrentPos();
       parser.setMarkerWithCurrentPos('start');
       if (parser.gotoNextValidChar('+')) {
-        this.bez = parser.getTextFromMarkerToCurrentPos('start');
+        this.referencedSegment = parseInt(parser.getTextFromMarkerToCurrentPos('start'), 10);
       } else {
         throw new ParseError('Seg', 'Unerwartetes ENDE!', startPos);
       }

@@ -3,6 +3,8 @@ import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
 import { Segment } from './Segment';
 import { SignInfo } from './SignInfo';
+import { SegmentName } from './SegmentName';
+import { ReturnCode } from './ReturnCode';
 
 export class Nachricht {
 
@@ -219,10 +221,21 @@ export class Nachricht {
   };
 
   public selectSegByBelongTo = function (belongTo) {
-    return this.segments.filter(segment => segment.bez === belongTo + '');
+    return this.segments.filter(segment => segment.referencedSegment === belongTo);
   };
 
   public selectSegByNameAndBelongTo = function (name, belongTo) {
-    return this.segments.filter(segment => segment.name === name && segment.bez === belongTo + '');
+    return this.segments.filter(segment => segment.name === name && segment.referencedSegment === belongTo);
   };
+
+  public wasCanceled() {
+    const statusSegments = this.selectSegByName(SegmentName.RETURN_STATUS_MESSAGE);
+    const canceledSegment = statusSegments.find(statusSegment => {
+      const canceledElement = statusSegment.store.data.find(dataElement => {
+        return dataElement.data.getEl(1) === ReturnCode.ERROR_CANCELED;
+      });
+      return canceledElement !== undefined;
+    });
+    return canceledSegment !== undefined;
+  }
 }
