@@ -564,20 +564,7 @@ export class FinTSClient {
           if (step === 1 || step === 2) {
             // Im Step 1 und 2 bleiben keine Verbindungen erhalten
             // Diese Verbindung auf jeden Fall beenden
-            const neuUrl = this.bpd.url;
-            const neuSigMethod = this.upd.availableTanVerfahren[0];
-            this.bpd = originalBpd.clone();
-            this.upd = originalUpd.clone();
-            const origSysId = this.sysId;
-            const origLastSig = this.lastSignaturId;
-            this.endDialogIfNotCanceled(recvMsg);
-            this.clear();
-            this.bpd.url = neuUrl;
-            this.upd.availableTanVerfahren[0] = neuSigMethod;
-            this.sysId = origSysId;
-            this.lastSignaturId = origLastSig;
-            originalBpd.url = this.bpd.url;
-            originalUpd.availableTanVerfahren[0] = neuSigMethod;
+            this.resetConnection(originalBpd, originalUpd, recvMsg);
           }
 
           if (hasNewUrl) {
@@ -1010,6 +997,23 @@ export class FinTSClient {
       }, 'Connection close failed.');
       throw err;
     });
+  }
+
+  private resetConnection(originalBpd, originalUpd, recvMsg) {
+    const neuUrl = this.bpd.url;
+    const neuSigMethod = this.upd.availableTanVerfahren[0];
+    this.bpd = originalBpd.clone();
+    this.upd = originalUpd.clone();
+    const origSysId = this.sysId;
+    const origLastSig = this.lastSignaturId;
+    this.endDialogIfNotCanceled(recvMsg);
+    this.clear();
+    this.bpd.url = neuUrl;
+    this.upd.availableTanVerfahren[0] = neuSigMethod;
+    this.sysId = origSysId;
+    this.lastSignaturId = origLastSig;
+    originalBpd.url = this.bpd.url;
+    originalUpd.availableTanVerfahren[0] = neuSigMethod;
   }
 
   private debugLogMsg = (txt, send) => {
