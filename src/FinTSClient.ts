@@ -209,7 +209,7 @@ export class FinTSClient {
         // Prüfen ob Erfolgreich
         let HIRMG: Segment = null;
         try {
-          HIRMG = recvMsg.selectSegByName('HIRMG')[0];
+          HIRMG = recvMsg.getSegmentByName('HIRMG')[0];
         } catch (e) {
           // nothing
         }
@@ -217,13 +217,13 @@ export class FinTSClient {
           if (Helper.checkMsgsWithBelongToForId(recvMsg, HKVVB.nr, '0020')) {
             try {
               // 1. Dialog ID zuweisen
-              this.dialogId = recvMsg.selectSegByName('HNHBK')[0].getEl(3).data;
+              this.dialogId = recvMsg.getSegmentByName('HNHBK')[0].getEl(3).data;
               // 2. System Id
               if (!this.isAnonymous() && this.sysId === 0) {
-                this.sysId = recvMsg.selectSegByNameAndBelongTo('HISYN', syn)[0].getEl(1).data;
+                this.sysId = recvMsg.getSegmentByNameAndReference('HISYN', syn)[0].getEl(1).data;
               }
               // 3. Möglicherweise neue kommunikationsdaten
-              let HIKOM = recvMsg.selectSegByName('HIKOM');
+              let HIKOM = recvMsg.getSegmentByName('HIKOM');
               HIKOM = HIKOM.length > 0 ? HIKOM[0] : null;
               let newUrl = this.bpd.url;
               if (HIKOM) {
@@ -246,7 +246,7 @@ export class FinTSClient {
               }
               // 4. Mögliche KontoInformationen
               if (this.konten.length === 0) {
-                const kontoList = recvMsg.selectSegByName('HIUPD');
+                const kontoList = recvMsg.getSegmentByName('HIUPD');
                 kontoList.forEach(kontodata => {
                   const konto = new Konto();
                   konto.iban = kontodata.getEl(2).data;
@@ -266,7 +266,7 @@ export class FinTSClient {
               // 5. Analysiere BPD
               try {
                 // 5.1 Vers
-                const HIBPA = recvMsg.selectSegByName('HIBPA')[0];
+                const HIBPA = recvMsg.getSegmentByName('HIBPA')[0];
                 this.bpd.versBpd = HIBPA.getEl(1).data;
                 // 5.2 sonst
                 this.bpd.bankName = HIBPA.getEl(3).data;
@@ -280,7 +280,7 @@ export class FinTSClient {
               if (this.protoVersion === 300) {
                 try {
                   // 5.3 Pins
-                  const pinData = recvMsg.selectSegByName('HIPINS')[0].getEl(4).data;
+                  const pinData = recvMsg.getSegmentByName('HIPINS')[0].getEl(4).data;
                   this.bpd.pin.minLength = pinData.getEl(1);
                   this.bpd.pin.maxLength = pinData.getEl(2);
                   this.bpd.pin.maxTanLength = pinData.getEl(3);
@@ -298,7 +298,7 @@ export class FinTSClient {
                   }, 'Error while analyse HIPINS');
                 }
               } else {
-                let pinDataSpk = recvMsg.selectSegByName('DIPINS');
+                let pinDataSpk = recvMsg.getSegmentByName('DIPINS');
                 if (pinDataSpk.length > 0) {
                   try {
                     // 5.3 Pins
@@ -328,7 +328,7 @@ export class FinTSClient {
               }
               try {
                 // 5.4 Tan
-                const HITANS = recvMsg.selectSegByName('HITANS')[0];
+                const HITANS = recvMsg.getSegmentByName('HITANS')[0];
                 if (HITANS.vers === 5) {
                   const tanData = HITANS.getEl(4);
                   this.bpd.tan.oneStepAvailable = tanData.getEl(1).toUpperCase() === 'J';
@@ -372,7 +372,7 @@ export class FinTSClient {
               }
               // 6. Analysiere UPD
               try {
-                const HIUPA = recvMsg.selectSegByName('HIUPA')[0];
+                const HIUPA = recvMsg.getSegmentByName('HIUPA')[0];
                 this.upd.versUpd = HIUPA.getEl(3).data;
                 this.upd.geschaeftsVorgGesp = (HIUPA.getEl(4) && HIUPA.getEl(4).data === '0'); // UPD-Verwendung
               } catch (ee) {
@@ -382,7 +382,7 @@ export class FinTSClient {
               }
               // 7. Analysiere Verfügbare Tan Verfahren
               try {
-                const hirmsForTanV: Segment = recvMsg.selectSegByNameAndBelongTo('HIRMS', HKVVB.nr)[0];
+                const hirmsForTanV: Segment = recvMsg.getSegmentByNameAndReference('HIRMS', HKVVB.nr)[0];
                 for (let i = 0; i !== hirmsForTanV.store.data.length; i += 1) {
                   if (hirmsForTanV.store.data[i].data.getEl(1) === '3920') {
                     this.upd.availableTanVerfahren = [];
@@ -541,7 +541,7 @@ export class FinTSClient {
           // ==> Ist ein HIRMS welches auf HNHBK mit Nr. 1 referenziert vorhanden ?
           // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
           // ==> Bezieht es sich auf das DE Nr. 3 ?
-          const HIRMS = recvMsg.selectSegByNameAndBelongTo('HIRMS', 1)[0];
+          const HIRMS = recvMsg.getSegmentByNameAndReference('HIRMS', 1)[0];
           if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === '9120' && HIRMS.getEl(1).data.getEl(2) === '3') {
             // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
             this.conEstLog.debug({
@@ -559,13 +559,7 @@ export class FinTSClient {
               step,
               error,
             }, 'Init Dialog failed: ' + error);
-            try {
-              cb(error);
-            } catch (cbError) {
-              this.conEstLog.error(cbError, {
-                step,
-              }, 'Unhandled callback Error in EstablishConnection');
-            }
+            cb(error);
           }
         } else {
           // Erfolgreich Init Msg verschickt
@@ -613,13 +607,7 @@ export class FinTSClient {
                 step,
               }, 'Multiple URL changes are not supported!');
               // Callback
-              try {
-                cb('Mehrfachänderung der URL ist nicht unterstützt!');
-              } catch (cbError) {
-                this.conEstLog.error(cbError, {
-                  step,
-                }, 'Unhandled callback Error in EstablishConnection');
-              }
+              cb('Mehrfachänderung der URL ist nicht unterstützt!');
             }
           } else if (step === 1 || step === 2) {
             // 3: eigentliche Verbindung aufbauen
@@ -639,14 +627,7 @@ export class FinTSClient {
                   step,
                 }, 'Error getting the available accounts.');
                 this.endDialogIfNotCanceled(recvMsg);
-                // Callback
-                try {
-                  cb(error4);
-                } catch (cbError) {
-                  this.conEstLog.error(cbError, {
-                    step,
-                  }, 'Unhandled callback Error in EstablishConnection');
-                }
+                cb(error4);
               } else {
                 // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
                 for (let i = 0; i !== sepaList.length; i += 1) {
@@ -664,13 +645,7 @@ export class FinTSClient {
                   recv_sepa_list: sepaList,
                 }, 'Connection entirely established and got available accounts. Return.');
                 // Callback
-                try {
-                  cb(null);
-                } catch (cbError) {
-                  this.conEstLog.error(cbError, {
-                    step,
-                  }, 'Unhandled callback Error in EstablishConnection');
-                }
+                cb(null);
               }
             });
           }
@@ -1054,5 +1029,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  }
+  };
 }

@@ -119,7 +119,7 @@ describe('test_real', function () {
       if (error) {
         var pv = ''
         try {
-          pv = recvMsg.selectSegByName('HNHBK')[0].getEl(2)
+          pv = recvMsg.getSegmentByName('HNHBK')[0].getEl(2)
           console.log(pv)
         } catch (xe) {
           console.log(xe)

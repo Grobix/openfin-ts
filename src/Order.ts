@@ -138,7 +138,7 @@ export class Order {
             // 1. global Message testen
             let gmsgException = null;
             try {
-              const HIRMG = recvMsg.selectSegByName('HIRMG')[0];
+              const HIRMG = recvMsg.getSegmentByName('HIRMG')[0];
               for (const i in HIRMG.store.data) {
                 this.intGmsgList.push(HIRMG.store.data[i].data.data);
                 if (gmsgException == null && HIRMG.store.data[i].data.data[0].data.charAt(0) === '9') {
@@ -157,7 +157,7 @@ export class Order {
             try {
               for (const j in this.intSendMsg) {
                 const sendMessage: SendMessage = this.intSendMsg[j];
-                const relatedSegments = recvMsg.selectSegByBelongTo(sendMessage.segment.nr);
+                const relatedSegments = recvMsg.getSegmentByReference(sendMessage.segment.nr);
                 sendMessage.finished = true;
                 relatedSegments.forEach(segment => {
                   if (segment.name !== 'HIRMS') {

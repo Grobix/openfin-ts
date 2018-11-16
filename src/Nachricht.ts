@@ -1,10 +1,10 @@
 import { Helper } from './Helper';
 import { NULL } from './NULL';
 import { ParseError, Parser } from './Parser';
-import { Segment } from './Segment';
-import { SignInfo } from './SignInfo';
-import { SegmentName } from './SegmentName';
 import { ReturnCode } from './ReturnCode';
+import { Segment } from './Segment';
+import { SegmentName } from './SegmentName';
+import { SignInfo } from './SignInfo';
 
 export class Nachricht {
 
@@ -25,7 +25,7 @@ export class Nachricht {
     // this is called wenn es ein outgoing message ist
     this.messageNumber = ongoingNumber;
     const seg = new Segment();
-    seg.init('HNHBK', 1, 3, 0);
+    seg.init('HNHBK', 1, '3', 0);
     this.addSeg(seg);
     seg.store.addDE(Helper.getNrWithLeadingNulls(0, 12)); // Länge
     seg.store.addDE(this.protoVersion + ''); // Version
@@ -213,23 +213,23 @@ export class Nachricht {
   }
 
   public isSigned = function () {
-    return this.selectSegByName('HNSHK').length === 1;
+    return this.getSegmentByName('HNSHK').length === 1;
   };
 
-  public selectSegByName = function (name) {
+  public getSegmentByName = function (name) {
     return this.segments.filter(segment => segment.name === name);
   };
 
-  public selectSegByBelongTo = function (belongTo) {
+  public getSegmentByReference = function (belongTo) {
     return this.segments.filter(segment => segment.referencedSegment === belongTo);
   };
 
-  public selectSegByNameAndBelongTo = function (name, belongTo) {
-    return this.segments.filter(segment => segment.name === name && segment.referencedSegment === belongTo);
+  public getSegmentByNameAndReference = function (name, referencedSegment) {
+    return this.segments.filter(segment => segment.name === name && segment.referencedSegment === referencedSegment);
   };
 
   public wasCanceled() {
-    const statusSegments = this.selectSegByName(SegmentName.RETURN_STATUS_MESSAGE);
+    const statusSegments = this.getSegmentByName(SegmentName.RETURN_STATUS_MESSAGE);
     const canceledSegment = statusSegments.find(statusSegment => {
       const canceledElement = statusSegment.store.data.find(dataElement => {
         return dataElement.data.getEl(1) === ReturnCode.ERROR_CANCELED;
