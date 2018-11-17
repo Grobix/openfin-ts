@@ -200,7 +200,7 @@ describe('test_real', function () {
   it('Test 6 - EstablishConnection', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 6'))
-    client.establishConnection(mocha_catcher(done, function (error) {
+    client.connect(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {
@@ -217,7 +217,7 @@ describe('test_real', function () {
   it('Test 7 - MsgGetKontoUmsaetze', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 7'))
-    client.establishConnection(mocha_catcher(done, function (error) {
+    client.connect(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {
@@ -246,7 +246,7 @@ describe('test_real', function () {
   it('Test 8 - MsgGetSaldo', function (done) {
     checkPreviousTests()
     var client = new FinTSClient(credentials.blz, credentials.user, credentials.pin, credentials.bankenliste, logger('Test 8'))
-    client.establishConnection(mocha_catcher(done, function (error) {
+    client.connect(mocha_catcher(done, function (error) {
       if (error) {
         throw error
       } else {

@@ -161,7 +161,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  }
+  };
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -325,7 +325,7 @@ export class FinTSClient {
                 // 5.4 Tan
                 const HITANS = recvMsg.getSegmentsByName('HITANS')[0];
                 if (HITANS.version === '5') {
-                  const tanData = HITANS.getEl(4) as DatenElementGruppe;
+                  const tanData = HITANS.getEl(4).data as DatenElementGruppe;
                   this.bpd.tan.oneStepAvailable = tanData.getEl(1).toUpperCase() === 'J';
                   this.bpd.tan.multipleTan = tanData.getEl(2).toUpperCase() === 'J';
                   this.bpd.tan.hashType = tanData.getEl(3);
@@ -367,7 +367,7 @@ export class FinTSClient {
               }
               // 6. Analysiere UPD
               try {
-                const HIUPA = recvMsg.getSegmentsByName('HIUPA')[0];
+                const HIUPA = recvMsg.getSegmentByName(SegmentName.GENERAL_USER_PARAMS);
                 this.upd.versUpd = HIUPA.getEl(3).data;
                 this.upd.geschaeftsVorgGesp = (HIUPA.getEl(4) && HIUPA.getEl(4).data === '0'); // UPD-Verwendung
               } catch (ee) {
@@ -377,9 +377,9 @@ export class FinTSClient {
               }
               // 7. Analysiere Verfügbare Tan Verfahren
               try {
-                const hirmsForTanV: Segment = recvMsg.getSegmentByNameAndReference('HIRMS', HKVVB.nr)[0];
+                const hirmsForTanV: Segment = recvMsg.getSegmentByNameAndReference(SegmentName.RETURN_STATUS_SEGMENTS, HKVVB.nr);
                 for (let i = 0; i !== hirmsForTanV.store.data.length; i += 1) {
-                  if (hirmsForTanV.store.data[i].data.getEl(1) === '3920') {
+                  if (hirmsForTanV.store.data[i].data.getEl(1) === ReturnCode.WARN_AVAILABLE_TAN_MODES) {
                     this.upd.availableTanVerfahren = [];
                     for (let a = 3; a < hirmsForTanV.store.data[i].data.data.length; a += 1) {
                       this.upd.availableTanVerfahren.push(hirmsForTanV.store.data[i].data.data[a].data);
@@ -515,125 +515,12 @@ export class FinTSClient {
     }, true);
   }
 
-  public establishConnection(cb) {
+  public connect(cb) {
     const originalBpd = this.bpd.clone();
     originalBpd.clone = this.bpd.clone;
     const originalUpd = this.upd.clone();
     originalUpd.clone = this.upd.clone;
-    // 1. Normale Verbindung herstellen um BPD zu bekommen und evtl. wechselnde URL ( 1.versVersuch FinTS 2. versVersuch HBCI2.2 )
-    // 2. Verbindung mit richtiger URL um auf jeden Fall (auch bei geänderter URL) die richtigen BPD zu laden + Tan Verfahren herauszufinden
-    // 3. Abschließende Verbindung aufbauen
-    const performStep = (step) => {
-      this.msgInitDialog((error, recvMsg, hasNewUrl) => {
-        if (error) {
-          this.endDialogIfNotCanceled(recvMsg);
-          // Wurde Version 300 zuerst probiert, kann noch auf Version 220 gewechselt werden, dazu:
-          // Prüfen ob aus der Anfrage Nachricht im Nachrichtenheader(=HNHBK) die Version nicht akzeptiert wurde
-          // HNHBK ist immer Segment Nr. 1
-          // Version steht in Datenelement Nr. 3
-          // ==> Ist ein HIRMS welches auf HNHBK mit Nr. 1 referenziert vorhanden ?
-          // ==> Hat es den Fehlercode 9120 = "nicht erwartet" ?
-          // ==> Bezieht es sich auf das DE Nr. 3 ?
-          const HIRMS = recvMsg.getSegmentByNameAndReference(SegmentName.RETURN_STATUS_SEGMENTS, 1);
-          if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === ReturnCode.ERROR_UNEXPECTED && HIRMS.getEl(1).data.getEl(2) === '3') {
-            // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
-            this.conEstLog.debug({
-              step,
-              hirms: HIRMS,
-            }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
-            this.protoVersion = 220;
-            this.clear();
-            performStep(1);
-          } else {
-            // Anderer Fehler
-            this.conEstLog.error({
-              step,
-              error,
-            }, 'Init Dialog failed: ' + error);
-            cb(error);
-          }
-        } else {
-          // Erfolgreich Init Msg verschickt
-          this.conEstLog.debug({
-            step,
-            bpd: this.beautifyBPD(this.bpd),
-            upd: this.upd,
-            url: this.bpd.url,
-            new_sig_method: this.upd.availableTanVerfahren[0],
-          }, 'Init Dialog successful.');
-          if (step === 1 || step === 2) {
-            // Im Step 1 und 2 bleiben keine Verbindungen erhalten
-            // Diese Verbindung auf jeden Fall beenden
-            this.resetConnection(originalBpd, originalUpd, recvMsg);
-          }
-
-          if (hasNewUrl) {
-            if (step === 1) {
-              // Im Step 1 ist das eingeplant, dass sich die URL ändert
-              this.conEstLog.debug({
-                step: 2,
-              }, 'Start Connection in Step 2');
-              performStep(2);
-            } else {
-              // Wir unterstützen keine mehrfach Ändernden URLs
-              if (step === 3) {
-                this.bpd = originalBpd.clone();
-                this.upd = originalUpd.clone();
-                this.endDialogIfNotCanceled(recvMsg);
-              }
-              this.conEstLog.error({
-                step,
-              }, 'Multiple URL changes are not supported!');
-              // Callback
-              cb('Mehrfachänderung der URL ist nicht unterstützt!');
-            }
-          } else if (step === 1 || step === 2) {
-            // 3: eigentliche Verbindung aufbauen
-            this.conEstLog.debug({
-              step: 3,
-            }, 'Start Connection in Step 3');
-            performStep(3);
-          } else {
-            // Ende Schritt 3 = Verbindung Ready
-            this.conEstLog.debug({
-              step,
-            }, 'Connection entirely established. Now get the available accounts.');
-            // 4. Bekomme noch mehr Details zu den Konten über HKSPA
-            this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
-              if (error4) {
-                this.conEstLog.error({
-                  step,
-                }, 'Error getting the available accounts.');
-                this.endDialogIfNotCanceled(recvMsg);
-                cb(error4);
-              } else {
-                // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
-                for (let i = 0; i !== sepaList.length; i += 1) {
-                  for (let j = 0; j !== this.konten.length; j += 1) {
-                    if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
-                      this.konten[j].unterKonto === sepaList[i].unterKonto) {
-                      this.konten[j].sepaData = sepaList[i];
-                      break;
-                    }
-                  }
-                }
-                // Fertig
-                this.conEstLog.debug({
-                  step,
-                  recv_sepa_list: sepaList,
-                }, 'Connection entirely established and got available accounts. Return.');
-                // Callback
-                cb(null);
-              }
-            });
-          }
-        }
-      });
-    };
-    this.conEstLog.debug({
-      step: 1,
-    }, 'Start First Connection');
-    performStep(1);
+    this.prepareConnection(cb, originalBpd, originalUpd);
   }
 
   public convertUmsatzeArrayToListofAllTransactions(umsaetze) {
@@ -967,6 +854,119 @@ export class FinTSClient {
     });
   }
 
+  private logSuccessfullInit(step) {
+    // Erfolgreich Init Msg verschickt
+    this.conEstLog.debug({
+      step: 1,
+      bpd: this.beautifyBPD(this.bpd),
+      upd: this.upd,
+      url: this.bpd.url,
+      new_sig_method: this.upd.availableTanVerfahren[0],
+    }, 'Init Dialog successful.');
+  }
+
+  private prepareConnection(cb, originalBpd, originalUpd, allowUrlChange: boolean = true) {
+    this.msgInitDialog((error, recvMsg, hasNewUrl) => {
+      if (error) {
+        this.endDialogIfNotCanceled(recvMsg);
+        const HIRMS = recvMsg.getSegmentByNameAndReference(SegmentName.RETURN_STATUS_SEGMENTS, 1);
+        if (this.protoVersion === 300 && HIRMS && HIRMS.getEl(1).data.getEl(1) === ReturnCode.ERROR_UNEXPECTED && HIRMS.getEl(1).data.getEl(2) === '3') {
+          // ==> Version wird wohl nicht unterstützt, daher neu probieren mit HBCI2 Version
+          this.conEstLog.debug({
+            step: 1,
+            hirms: HIRMS,
+          }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
+          this.protoVersion = 220;
+          this.clear();
+          this.prepareConnection(cb, originalBpd, originalUpd, true);
+        } else {
+          // Anderer Fehler
+          this.conEstLog.error({
+            error,
+            step: 1,
+          }, 'Init Dialog failed: ' + error);
+          cb(error);
+        }
+        return;
+      }
+
+      this.logSuccessfullInit(1);
+      this.resetConnection(originalBpd, originalUpd, recvMsg);
+
+      if (hasNewUrl) {
+        if (!allowUrlChange) {
+          this.conEstLog.error({
+            step: 2,
+          }, 'Multiple URL changes are not supported!');
+          // Callback
+          cb('Mehrfachänderung der URL ist nicht unterstützt!');
+          return;
+        }
+        this.prepareConnection(cb, originalBpd, originalUpd, false);
+        return;
+      }
+      // 3: eigentliche Verbindung aufbauen
+      this.conEstLog.debug({
+        step: 3,
+      }, 'Start Connection in Step 3');
+      this.completeConnection(cb, originalBpd, originalUpd);
+    });
+  }
+
+  private completeConnection(cb, originalBpd, originalUpd) {
+    this.msgInitDialog((error, recvMsg, hasNewUrl) => {
+      if (error) {
+        this.endDialogIfNotCanceled(recvMsg);
+        cb(error);
+        return;
+      }
+      if (hasNewUrl) {
+        // Wir unterstützen keine mehrfach Ändernden URLs
+        this.bpd = originalBpd.clone();
+        this.upd = originalUpd.clone();
+        this.endDialogIfNotCanceled(recvMsg);
+        this.conEstLog.error({
+          step: 3,
+        }, 'Multiple URL changes are not supported!');
+        // Callback
+        cb('Mehrfachänderung der URL ist nicht unterstützt!');
+        return;
+      }
+      // Ende Schritt 3 = Verbindung Ready
+      this.conEstLog.debug({
+        step: 3,
+      }, 'Connection entirely established. Now get the available accounts.');
+      // 4. Bekomme noch mehr Details zu den Konten über HKSPA
+      this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
+        if (error4) {
+          this.conEstLog.error({
+            step:3,
+          }, 'Error getting the available accounts.');
+          this.endDialogIfNotCanceled(recvMsg);
+          cb(error4);
+        } else {
+          // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
+          for (let i = 0; i !== sepaList.length; i += 1) {
+            for (let j = 0; j !== this.konten.length; j += 1) {
+              if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
+                this.konten[j].unterKonto === sepaList[i].unterKonto) {
+                this.konten[j].sepaData = sepaList[i];
+                break;
+              }
+            }
+          }
+          // Fertig
+          this.conEstLog.debug({
+            step:3,
+            recv_sepa_list: sepaList,
+          }, 'Connection entirely established and got available accounts. Return.');
+          // Callback
+          cb(null);
+        }
+      });
+    });
+  }
+
   private beautifyBPD(bpd: BPD) {
     const cbpd = bpd.clone();
     cbpd.gvParameters = '...';
@@ -1024,5 +1024,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  }
+  };
 }

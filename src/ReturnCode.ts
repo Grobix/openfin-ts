@@ -1,4 +1,5 @@
 export enum ReturnCode {
   ERROR_CANCELED = '9800',
   ERROR_UNEXPECTED = '9120',
+  WARN_AVAILABLE_TAN_MODES = '3920',
 }
