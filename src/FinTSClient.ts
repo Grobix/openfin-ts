@@ -19,6 +19,7 @@ import { SegmentName } from './SegmentName';
 import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
 import { UPD } from './UPD';
+import { TotalResult } from './TotalResult';
 
 export class FinTSClient {
 
@@ -782,22 +783,22 @@ export class FinTSClient {
             const HISAL = reqSaldo.getSegByName(relatedRespSegments, 'HISAL');
             if (HISAL !== null) {
               try {
-                const result = {
-                  desc: reqSaldo.getElFromSeg(HISAL, 2, null),
-                  cur: reqSaldo.getElFromSeg(HISAL, 3, null),
-                  saldo: Helper.getSaldo(HISAL, 4, false),
-                  saldo_vorgemerkt: Helper.getSaldo(HISAL, 5, false),
-                  credit_line: Helper.getBetrag(HISAL, 6),
-                  avail_amount: Helper.getBetrag(HISAL, 7),
-                  used_amount: Helper.getBetrag(HISAL, 8),
-                  overdraft: null,
-                  booking_date: null,
-                  faelligkeit_date: Helper.getJSDateFromSeg(HISAL, 11),
-                };
+                const result = new TotalResult();
+                result.desc = reqSaldo.getElFromSeg(HISAL, 2, null);
+                result.currency = reqSaldo.getElFromSeg(HISAL, 3, null);
+                result.total = Helper.getSaldo(HISAL, 4, false);
+                result.totalReserved = Helper.getSaldo(HISAL, 5, false);
+                result.creditLine = Helper.getBetrag(HISAL, 6);
+                result.availableAmount = Helper.getBetrag(HISAL, 7);
+                result.usedAmount = Helper.getBetrag(HISAL, 8);
+                result.overdraft = null;
+                result.bookingDate = null;
+                result.dueDate = Helper.getJSDateFromSeg(HISAL, 11);
+
                 if (segVers === 5) {
-                  result.booking_date = Helper.getJSDateFromSeg(HISAL, 9, 10);
+                  result.bookingDate = Helper.getJSDateFromSeg(HISAL, 9, 10);
                 } else {
-                  result.booking_date = Helper.getJSDateFromSegTSP(HISAL, 11);
+                  result.bookingDate = Helper.getJSDateFromSegTSP(HISAL, 11);
                   result.overdraft = Helper.getBetrag(HISAL, 9);
                 }
                 cb(null, recvMsg, result);

@@ -4,6 +4,7 @@ import { Saldo } from '../src/Saldo';
 import { Umsatz } from '../src/Umsatz';
 import { makeCallback } from './TestHelpers';
 import TestServer from './TestServer';
+import { TotalResult } from '../src/TotalResult';
 
 let testServer: TestServer;
 const bankenliste = {
@@ -183,14 +184,14 @@ describe('The FinTSClient', () => {
     try {
       await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.getTotal(client.konten[0].sepaData, makeCallback(done, (error2, rMsg, data) => {
-        expect(data.saldo).toBeDefined();
-        expect(data.saldo).not.toBeNull();
+      client.getTotal(client.konten[0].sepaData, makeCallback(done, (error2, rMsg, data: TotalResult) => {
+        expect(data.total).toBeDefined();
+        expect(data.total).not.toBeNull();
 
-        const saldo = data.saldo as Saldo;
-        expect(saldo.betrag).toEqual({value: 4.36, currency: 'EUR'});
-        expect(saldo.currency).toBe('EUR');
-        expect(saldo.sollHaben).toBe('H');
+        const total = data.total as Saldo;
+        expect(total.betrag).toEqual({ value: 4.36, currency: 'EUR'});
+        expect(total.currency).toBe('EUR');
+        expect(total.sollHaben).toBe('H');
 
         client.msgEndDialog(makeCallback(done, (errorEnd, recvMsg2) => {
           done();
