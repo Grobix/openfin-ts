@@ -72,7 +72,7 @@ export class Order {
     const extCb = async (error, order, recvMsg) => {
       if (error) {
         try {
-          await this.client.endDialog();
+          await this.client.close();
           this.client.conLog.debug('Connection closed okay, after error.');
         } catch (closeError) {
           this.client.conLog.error({

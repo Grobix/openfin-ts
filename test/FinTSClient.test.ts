@@ -69,7 +69,7 @@ describe('The FinTSClient', () => {
   it('ends the dialog, closes secure', (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
     client.msgInitDialog(makeCallback(done, async () => {
-      await client.endDialog();
+      await client.close();
       client.closeSecure();
       expect(client.bpd).toBeNull();
       expect(client.upd).toBeNull();
@@ -192,7 +192,7 @@ describe('The FinTSClient', () => {
       expect(total.currency).toBe('EUR');
       expect(total.sollHaben).toBe('H');
 
-      await client.endDialog();
+      await client.close();
       done();
     } catch (err) {
       done.fail(err);

@@ -485,7 +485,7 @@ export class FinTSClient {
     });
   }
 
-  public endDialog(): Promise<Nachricht> {
+  public close(): Promise<Nachricht> {
     return new Promise<Nachricht>((resolve, reject) => {
       const msg = new Nachricht(this.protoVersion);
       if (this.kundenId !== '9999999999') {
@@ -954,11 +954,12 @@ export class FinTSClient {
   }
 
   private endDialogIfNotCanceled(message: Nachricht): Promise<Nachricht> {
-    const promise: Promise<Nachricht> = new Promise((resolve, reject) => {
+    const promise: Promise<Nachricht> = new Promise(async (resolve, reject) => {
       if (message.wasCanceled()) {
         resolve();
       } else {
-        return this.endDialog();
+        await this.close();
+        resolve();
       }
     });
 
