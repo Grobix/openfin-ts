@@ -161,7 +161,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  };
+  }
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -515,12 +515,15 @@ export class FinTSClient {
     }, true);
   }
 
-  public connect(cb) {
+  public async connect(): Promise<void> {
     const originalBpd = this.bpd.clone();
     originalBpd.clone = this.bpd.clone;
     const originalUpd = this.upd.clone();
     originalUpd.clone = this.upd.clone;
-    this.prepareConnection(cb, originalBpd, originalUpd);
+    const promise = new Promise<void>((resolve, reject) => {
+      this.prepareConnection(resolve, reject, originalBpd, originalUpd);
+    });
+    return promise;
   }
 
   public convertUmsatzeArrayToListofAllTransactions(umsaetze) {
@@ -752,7 +755,7 @@ export class FinTSClient {
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     cb
   */
-  public msgGetSaldo(konto: Konto, cb) {
+  public getTotal(konto: Konto, cb) {
     const reqSaldo = new Order(this);
     let processed = false;
     let v5 = null;
@@ -865,7 +868,7 @@ export class FinTSClient {
     }, 'Init Dialog successful.');
   }
 
-  private prepareConnection(cb, originalBpd, originalUpd, allowUrlChange: boolean = true) {
+  private prepareConnection(resolve, reject, originalBpd, originalUpd, allowUrlChange: boolean = true) {
     this.msgInitDialog((error, recvMsg, hasNewUrl) => {
       if (error) {
         this.endDialogIfNotCanceled(recvMsg);
@@ -878,14 +881,14 @@ export class FinTSClient {
           }, 'Version 300 nicht unterstützt, Switch Version from FinTS to HBCI2.2');
           this.protoVersion = 220;
           this.clear();
-          this.prepareConnection(cb, originalBpd, originalUpd, true);
+          this.prepareConnection(resolve, reject, originalBpd, originalUpd, true);
         } else {
           // Anderer Fehler
           this.conEstLog.error({
             error,
             step: 1,
           }, 'Init Dialog failed: ' + error);
-          cb(error);
+          reject(error);
         }
         return;
       }
@@ -899,25 +902,25 @@ export class FinTSClient {
             step: 2,
           }, 'Multiple URL changes are not supported!');
           // Callback
-          cb('Mehrfachänderung der URL ist nicht unterstützt!');
+          reject('Mehrfachänderung der URL ist nicht unterstützt!');
           return;
         }
-        this.prepareConnection(cb, originalBpd, originalUpd, false);
+        this.prepareConnection(resolve, reject, originalBpd, originalUpd, false);
         return;
       }
       // 3: eigentliche Verbindung aufbauen
       this.conEstLog.debug({
         step: 3,
       }, 'Start Connection in Step 3');
-      this.completeConnection(cb, originalBpd, originalUpd);
+      this.completeConnection(resolve, reject, originalBpd, originalUpd);
     });
   }
 
-  private completeConnection(cb, originalBpd, originalUpd) {
+  private completeConnection(resolve, reject, originalBpd, originalUpd) {
     this.msgInitDialog((error, recvMsg, hasNewUrl) => {
       if (error) {
         this.endDialogIfNotCanceled(recvMsg);
-        cb(error);
+        reject(error);
         return;
       }
       if (hasNewUrl) {
@@ -929,7 +932,7 @@ export class FinTSClient {
           step: 3,
         }, 'Multiple URL changes are not supported!');
         // Callback
-        cb('Mehrfachänderung der URL ist nicht unterstützt!');
+        reject('Mehrfachänderung der URL ist nicht unterstützt!');
         return;
       }
       // Ende Schritt 3 = Verbindung Ready
@@ -943,7 +946,7 @@ export class FinTSClient {
             step:3,
           }, 'Error getting the available accounts.');
           this.endDialogIfNotCanceled(recvMsg);
-          cb(error4);
+          reject(error4);
         } else {
           // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
           for (let i = 0; i !== sepaList.length; i += 1) {
@@ -961,7 +964,7 @@ export class FinTSClient {
             recv_sepa_list: sepaList,
           }, 'Connection entirely established and got available accounts. Return.');
           // Callback
-          cb(null);
+          resolve();
         }
       });
     });
@@ -1024,5 +1027,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  };
+  }
 }

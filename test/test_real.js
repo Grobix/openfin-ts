@@ -251,7 +251,7 @@ describe('test_real', function () {
         throw error
       } else {
         client.konten[0].sepaData.should.not.equal(null)
-        client.msgGetSaldo(client.konten[0].sepaData, mocha_catcher(done, function (error2, rMsg, data) {
+        client.getTotal(client.konten[0].sepaData, mocha_catcher(done, function (error2, rMsg, data) {
           if (rMsg) client.msgCheckAndEndDialog(rMsg, function (error, recvMsg2) {})
           if (error2) {
             throw error2

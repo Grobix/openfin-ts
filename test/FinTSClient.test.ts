@@ -109,36 +109,46 @@ describe('The FinTSClient', () => {
     }));
   }, 60000);
 
-  it('establishes a connection', (done) => {
+  it('establishes a connection', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, () => {
+    try {
+      await client.connect();
       expectClientState(client);
       expect(client.konten[0].sepaData).not.toBeNull();
       expect(client.konten[0].sepaData.iban).toBe('DE111234567800000001');
       expect(client.konten[0].sepaData.bic).toBe('GENODE00TES');
       done();
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
-  it('fails connecting with wrong user', (done) => {
+  it('fails connecting with wrong user', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, 'test2', testPin);
-    client.connect((error) => {
-      expect(error).toBeDefined();
+    try {
+      await client.connect();
+      done.fail('Should fail with wrong user');
+    } catch (err) {
+      expect(err).toBeDefined();
       done();
-    });
+    }
   });
 
-  it('fails connecting with wrong password', (done) => {
+  it('fails connecting with wrong password', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, '123d');
-    client.connect((error) => {
-      expect(error).toBeDefined();
+    try {
+      await client.connect();
+      done.fail('Should fail with wrong password');
+    } catch (err) {
+      expect(err).toBeDefined();
       done();
-    });
+    }
   });
 
-  it('retrieves transactions', (done) => {
+  it('retrieves transactions', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, () => {
+    try {
+      await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
       client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data: Umsatz[]) => {
         // Alles gut
@@ -163,14 +173,17 @@ describe('The FinTSClient', () => {
         // Testcase erweitern
         done();
       }));
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
-  it('retrieves totals', (done) => {
+  it('retrieves totals', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, (error) => {
+    try {
+      await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.msgGetSaldo(client.konten[0].sepaData, makeCallback(done, (error2, rMsg, data) => {
+      client.getTotal(client.konten[0].sepaData, makeCallback(done, (error2, rMsg, data) => {
         expect(data.saldo).toBeDefined();
         expect(data.saldo).not.toBeNull();
 
@@ -183,12 +196,15 @@ describe('The FinTSClient', () => {
           done();
         }));
       }));
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
-  it('checks the correct sequence of messages', (done) => {
+  it('checks the correct sequence of messages', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, (error) => {
+    try {
+      await client.connect();
       let errorChecked = false;
       expect(client.konten[0].sepaData).not.toBeNull();
       client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data) => {
@@ -212,7 +228,9 @@ describe('The FinTSClient', () => {
         expect(errorToCheck.toString()).not.toBeNull();
         errorChecked = true;
       }
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
 });
@@ -222,9 +240,10 @@ describe('The FinTSClient with offset', () => {
     testServer.setHikas2Mode(true);
   });
 
-  it('retrieves transactions', (done) => {
+  it('retrieves transactions', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, (error) => {
+    try {
+      await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
       client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data: Umsatz[]) => {
         expect(data).not.toBeNull();
@@ -236,7 +255,9 @@ describe('The FinTSClient with offset', () => {
         // Testcase erweitern
         done();
       }));
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
   afterAll(() => {
@@ -251,15 +272,18 @@ describe('The FinTSClient with HBCI 2.2 protocol', () => {
     testServer.setProtocolVersion(220);
   });
 
-  it('establishes connection', (done) => {
+  it('establishes connection', async (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.connect(makeCallback(done, (error) => {
+    try {
+      await client.connect();
       expectClientState(client);
       expect(client.konten[0].sepaData).not.toBeNull();
       expect(client.konten[0].sepaData.iban).toBe('DE111234567800000001');
       expect(client.konten[0].sepaData.bic).toBe('GENODE00TES');
       done();
-    }));
+    } catch (err) {
+      done.fail(err);
+    }
   });
 
   afterAll(() => {
