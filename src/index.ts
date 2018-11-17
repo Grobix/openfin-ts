@@ -27,3 +27,6 @@ export * from './Umsatz';
 export * from './UmsatzTyp';
 export * from './UPD';
 export * from './Verwendungszweck';
+export * from './TotalResult';
+export * from './ReturnCode';
+export * from './SegmentName';

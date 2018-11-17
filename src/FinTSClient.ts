@@ -18,9 +18,9 @@ import { Segment } from './Segment';
 import { SegmentName } from './SegmentName';
 import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
-import { UPD } from './UPD';
 import { TotalResult } from './TotalResult';
 import { Umsatz } from './Umsatz';
+import { UPD } from './UPD';
 
 export class FinTSClient {
 
