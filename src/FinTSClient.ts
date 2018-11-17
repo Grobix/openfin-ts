@@ -535,105 +535,83 @@ export class FinTSClient {
   }
 
   // SEPA kontoverbindung anfordern HKSPA, HISPA ist die antwort
-  public msgRequestSepa(forKonto, cb) {
-    // Vars
-    let processed = false;
-    let v1 = null;
-    let aufsetzpunktLoc = 0;
-    const sepaList = [];
-    // Create Segment
-    if (forKonto) {
-      v1 = [
-        [280, forKonto],
-      ];
-      aufsetzpunktLoc = 2;
-    } else {
-      v1 = [];
-      aufsetzpunktLoc = 1;
-    }
-    // Start
-    const reqSepaOrder = new Order(this);
-    reqSepaOrder.msg({
-      type: 'HKSPA',
-      ki_type: 'HISPA',
-      aufsetzpunkt_loc: [aufsetzpunktLoc],
-      send_msg: {
-        1: v1,
-        2: v1,
-        3: v1,
-      },
-      recv_msg: reqSepaOrder.helper().vers([1, 2, 3], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
-        try {
-          if (reqSepaOrder.checkMessagesOkay(relatedRespMsgs, true)) {
-            const HISPA = reqSepaOrder.getSegByName(relatedRespSegments, 'HISPA');
-            if (HISPA !== null) {
-              for (let i = 0; i !== HISPA.store.data.length; i += 1) {
-                const verb = HISPA.getEl(i + 1).data as DatenElementGruppe;
-                const o = new Konto();
-                o.isSepa = verb.getEl(1) === 'J';
-                o.iban = verb.getEl(2);
-                o.bic = verb.getEl(3);
-                o.kontoNr = verb.getEl(4);
-                o.unterKonto = verb.getEl(5);
-                o.countryCode = verb.getEl(6);
-                o.blz = verb.getEl(7);
-                sepaList.push(o);
-              }
-              try {
-                cb(null, recvMsg, sepaList);
-              } catch (cbError) {
-                this.gvLog.error(cbError, {
-                  gv: 'HKSPA',
-                }, 'Unhandled callback Error in HKSPA');
-              }
-            } else {
-              throw new Error('TODO ausführlicherer Error');
-            }
-          }
-        } catch (e) {
-          this.gvLog.error(e, {
-            gv: 'HKSPA',
-            msgs: relatedRespMsgs,
-            segments: relatedRespSegments,
-          }, 'Exception while parsing HKSPA response');
-          try {
-            cb(e, null, null);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
-              gv: 'HKSPA',
-            }, 'Unhandled callback Error in HKSPA');
-          }
-        }
-        processed = true;
-      }).done(),
-    });
-    reqSepaOrder.done((error, order, recvMsg) => {
-      if (error && !processed) {
-        this.gvLog.error(error, {
-          recvMsg,
-          gv: 'HKSPA',
-        }, 'Exception while parsing HKSPA');
-        try {
-          cb(error, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
-            gv: 'HKSPA',
-          }, 'Unhandled callback Error in HKSPA');
-        }
-      } else if (!processed) {
-        const ex = new Exceptions.InternalError('HKSPA response was not analysied');
-        this.gvLog.error(ex, {
-          recvMsg,
-          gv: 'HKSPA',
-        }, 'HKSPA response was not analysied');
-        try {
-          cb(ex, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
-            gv: 'HKSPA',
-          }, 'Unhandled callback Error in HKSPA');
-        }
+  public getSepa(forKonto): Promise<Konto[]> {
+    return new Promise<Konto[]>((resolve, reject) => {
+      // Vars
+      let processed = false;
+      let v1 = null;
+      let aufsetzpunktLoc = 0;
+      const sepaList = [];
+      // Create Segment
+      if (forKonto) {
+        v1 = [
+          [280, forKonto],
+        ];
+        aufsetzpunktLoc = 2;
+      } else {
+        v1 = [];
+        aufsetzpunktLoc = 1;
       }
+      // Start
+      const reqSepaOrder = new Order(this);
+      reqSepaOrder.msg({
+        type: 'HKSPA',
+        ki_type: 'HISPA',
+        aufsetzpunkt_loc: [aufsetzpunktLoc],
+        send_msg: {
+          1: v1,
+          2: v1,
+          3: v1,
+        },
+        recv_msg: reqSepaOrder.helper().vers([1, 2, 3], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
+          try {
+            if (reqSepaOrder.checkMessagesOkay(relatedRespMsgs, true)) {
+              const HISPA = reqSepaOrder.getSegByName(relatedRespSegments, 'HISPA');
+              if (HISPA !== null) {
+                for (let i = 0; i !== HISPA.store.data.length; i += 1) {
+                  const verb = HISPA.getEl(i + 1).data as DatenElementGruppe;
+                  const o = new Konto();
+                  o.isSepa = verb.getEl(1) === 'J';
+                  o.iban = verb.getEl(2);
+                  o.bic = verb.getEl(3);
+                  o.kontoNr = verb.getEl(4);
+                  o.unterKonto = verb.getEl(5);
+                  o.countryCode = verb.getEl(6);
+                  o.blz = verb.getEl(7);
+                  sepaList.push(o);
+                }
+                resolve(sepaList);
+              } else {
+                throw new Error('TODO ausführlicherer Error');
+              }
+            }
+          } catch (e) {
+            this.gvLog.error(e, {
+              gv: 'HKSPA',
+              msgs: relatedRespMsgs,
+              segments: relatedRespSegments,
+            }, 'Exception while parsing HKSPA response');
+            reject(e);
+          }
+          processed = true;
+        }).done(),
+      });
+      reqSepaOrder.done((error, order, recvMsg) => {
+        if (error && !processed) {
+          this.gvLog.error(error, {
+            recvMsg,
+            gv: 'HKSPA',
+          }, 'Exception while parsing HKSPA');
+          reject(error);
+        } else if (!processed) {
+          const ex = new Exceptions.InternalError('HKSPA response was not analysied');
+          this.gvLog.error(ex, {
+            recvMsg,
+            gv: 'HKSPA',
+          }, 'HKSPA response was not analysied');
+          reject(ex);
+        }
+      });
     });
   }
 
@@ -894,7 +872,7 @@ export class FinTSClient {
   }
 
   private completeConnection(resolve, reject, originalBpd, originalUpd) {
-    this.msgInitDialog((error, recvMsg, hasNewUrl) => {
+    this.msgInitDialog(async (error, recvMsg, hasNewUrl) => {
       if (error) {
         this.endDialogIfNotCanceled(recvMsg);
         reject(error);
@@ -916,34 +894,30 @@ export class FinTSClient {
       this.conEstLog.debug({
         step: 3,
       }, 'Connection entirely established. Now get the available accounts.');
-      // 4. Bekomme noch mehr Details zu den Konten über HKSPA
-      this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
-        if (error4) {
-          this.conEstLog.error({
-            step: 3,
-          }, 'Error getting the available accounts.');
-          this.endDialogIfNotCanceled(recvMsg);
-          reject(error4);
-        } else {
-          // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
-          for (let i = 0; i !== sepaList.length; i += 1) {
-            for (let j = 0; j !== this.konten.length; j += 1) {
-              if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
-                this.konten[j].unterKonto === sepaList[i].unterKonto) {
-                this.konten[j].sepaData = sepaList[i];
-                break;
-              }
+      try {
+        const sepaList = await this.getSepa(null);
+        // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
+        for (let i = 0; i !== sepaList.length; i += 1) {
+          for (let j = 0; j !== this.konten.length; j += 1) {
+            if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
+              this.konten[j].unterKonto === sepaList[i].unterKonto) {
+              this.konten[j].sepaData = sepaList[i];
+              break;
             }
           }
-          // Fertig
-          this.conEstLog.debug({
-            step: 3,
-            recv_sepa_list: sepaList,
-          }, 'Connection entirely established and got available accounts. Return.');
-          // Callback
-          resolve();
         }
-      });
+        this.conEstLog.debug({
+          step: 3,
+          recv_sepa_list: sepaList,
+        }, 'Connection entirely established and got available accounts. Return.');
+        resolve();
+      } catch (err) {
+        this.conEstLog.error({
+          step: 3,
+        }, 'Error getting the available accounts.');
+        this.endDialogIfNotCanceled(recvMsg);
+        reject(err);
+      }
     });
   }
 

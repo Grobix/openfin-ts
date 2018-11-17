@@ -1,3 +1,4 @@
+import { Konto } from '../src';
 import { Exceptions } from '../src/Exceptions';
 import { FinTSClient } from '../src/FinTSClient';
 import { Saldo } from '../src/Saldo';
@@ -83,29 +84,31 @@ describe('The FinTSClient', () => {
 
   it('requests account information', (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.msgInitDialog(makeCallback(done, (err) => {
+    client.msgInitDialog(makeCallback(done, async (err) => {
       expectClientState(client);
       expect(client.konten[0].sepaData).toBe(null);
-      client.msgRequestSepa(null, makeCallback(done, (error3, recvMsg3, sepaList) => {
-        expect(Array.isArray(client.konten)).toBe(true);
-        expect(sepaList[0].iban).toBe('DE111234567800000001');
-        expect(sepaList[0].bic).toBe('GENODE00TES');
-        done();
-      }));
+      const sepaList = await client.getSepa(null);
+      expect(Array.isArray(client.konten)).toBe(true);
+      expect(sepaList[0].iban).toBe('DE111234567800000001');
+      expect(sepaList[0].bic).toBe('GENODE00TES');
+      done();
     }));
   });
 
   it('reports error on failed connection', (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.msgInitDialog(makeCallback(done, (error) => {
+    client.msgInitDialog(makeCallback(done, async (error) => {
       expectClientState(client);
       expect(client.konten[0].sepaData).toBe(null);
       client.bpd.url = 'http://thiswillnotworkurl';
-      client.msgRequestSepa(null, (error3) => {
-        expect(error3).not.toBeNull();
-        expect(error3).toBeInstanceOf(Exceptions.ConnectionFailedException);
+      try {
+        const sepaList = await client.getSepa(null);
+        done.fail('Should fail with wrong url');
+      } catch (err) {
+        expect(err).not.toBeNull();
+        expect(err).toBeInstanceOf(Exceptions.ConnectionFailedException);
         done();
-      });
+      }
     }));
   }, 60000);
 
