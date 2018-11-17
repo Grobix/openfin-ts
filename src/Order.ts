@@ -69,17 +69,16 @@ export class Order {
 
   public done(cb) {
     // Exit CB is called when the function returns here it is checked if an error occures and then disconnects
-    const extCb = (error, order, recvMsg) => {
+    const extCb = async (error, order, recvMsg) => {
       if (error) {
-        this.client.msgEndDialog((error2, recvMsg2) => {
-          if (error2) {
-            this.client.conLog.error({
-              error: error2,
-            }, 'Connection close failed after error.');
-          } else {
-            this.client.conLog.debug('Connection closed okay, after error.');
-          }
-        });
+        try {
+          await this.client.endDialog();
+          this.client.conLog.debug('Connection closed okay, after error.');
+        } catch (closeError) {
+          this.client.conLog.error({
+            error: closeError,
+          }, 'Connection close failed after error.');
+        }
       }
       cb(error, order, recvMsg);
     };

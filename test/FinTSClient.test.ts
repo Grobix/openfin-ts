@@ -1,10 +1,10 @@
 import { Exceptions } from '../src/Exceptions';
 import { FinTSClient } from '../src/FinTSClient';
 import { Saldo } from '../src/Saldo';
+import { TotalResult } from '../src/TotalResult';
 import { Umsatz } from '../src/Umsatz';
 import { makeCallback } from './TestHelpers';
 import TestServer from './TestServer';
-import { TotalResult } from '../src/TotalResult';
 
 let testServer: TestServer;
 const bankenliste = {
@@ -68,17 +68,16 @@ describe('The FinTSClient', () => {
 
   it('ends the dialog, closes secure', (done) => {
     const client = new FinTSClient(testBlz, testBankUrl, testKundenId, testPin);
-    client.msgInitDialog(makeCallback(done, () => {
-      client.msgEndDialog(makeCallback(done, () => {
-        client.closeSecure();
-        expect(client.bpd).toBeNull();
-        expect(client.upd).toBeNull();
-        expect(client.konten).toBeNull();
-        expect(client.pin).toBeNull();
-        expect(client.tan).toBeNull();
-        expect(client.sysId).toBeNull();
-        done();
-      }));
+    client.msgInitDialog(makeCallback(done, async () => {
+      await client.endDialog();
+      client.closeSecure();
+      expect(client.bpd).toBeNull();
+      expect(client.upd).toBeNull();
+      expect(client.konten).toBeNull();
+      expect(client.pin).toBeNull();
+      expect(client.tan).toBeNull();
+      expect(client.sysId).toBeNull();
+      done();
     }));
   });
 
@@ -184,19 +183,17 @@ describe('The FinTSClient', () => {
     try {
       await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.getTotal(client.konten[0].sepaData, makeCallback(done, (error2, rMsg, data: TotalResult) => {
-        expect(data.total).toBeDefined();
-        expect(data.total).not.toBeNull();
+      const data = await client.getTotal(client.konten[0].sepaData);
+      expect(data.total).toBeDefined();
+      expect(data.total).not.toBeNull();
 
-        const total = data.total as Saldo;
-        expect(total.betrag).toEqual({ value: 4.36, currency: 'EUR'});
-        expect(total.currency).toBe('EUR');
-        expect(total.sollHaben).toBe('H');
+      const total = data.total as Saldo;
+      expect(total.betrag).toEqual({ value: 4.36, currency: 'EUR' });
+      expect(total.currency).toBe('EUR');
+      expect(total.sollHaben).toBe('H');
 
-        client.msgEndDialog(makeCallback(done, (errorEnd, recvMsg2) => {
-          done();
-        }));
-      }));
+      await client.endDialog();
+      done();
     } catch (err) {
       done.fail(err);
     }

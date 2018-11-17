@@ -204,7 +204,7 @@ describe('test_real', function () {
       if (error) {
         throw error
       } else {
-        client.msgEndDialog(function (error, recvMsg2) {})
+        client.endDialog(function (error, recvMsg2) {})
         client.bpd.should.have.property('versBpd')
         client.upd.should.have.property('versUpd')
         client.konten.should.be.an.Array

@@ -162,7 +162,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  }
+  };
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -485,35 +485,33 @@ export class FinTSClient {
     });
   }
 
-  public msgEndDialog = (cb) => {
-    const msg = new Nachricht(this.protoVersion);
-    if (this.kundenId !== '9999999999') {
-      const signInfo = new SignInfo();
-      signInfo.pin = this.pin;
-      signInfo.tan = NULL;
-      signInfo.sysId = this.sysId;
-      signInfo.pinVersion = this.upd.availableTanVerfahren[0];
-      signInfo.sigId = this.getNewSigId();
-      msg.sign(signInfo);
-    }
-    msg.init(this.dialogId, this.nextMsgNr, this.blz, this.kundenId);
-    this.nextMsgNr += 1;
-    msg.addSeg(Helper.newSegFromArray('HKEND', 1, [this.dialogId]));
-    this.sendMsgToDestination(msg, (error, recvMsg) => {
-      if (error) {
-        this.gvLog.error(error, {
-          msg,
-          gv: 'HKEND',
-        }, 'HKEND could not be send');
+  public endDialog(): Promise<Nachricht> {
+    return new Promise<Nachricht>((resolve, reject) => {
+      const msg = new Nachricht(this.protoVersion);
+      if (this.kundenId !== '9999999999') {
+        const signInfo = new SignInfo();
+        signInfo.pin = this.pin;
+        signInfo.tan = NULL;
+        signInfo.sysId = this.sysId;
+        signInfo.pinVersion = this.upd.availableTanVerfahren[0];
+        signInfo.sigId = this.getNewSigId();
+        msg.sign(signInfo);
       }
-      try {
-        cb(error, recvMsg);
-      } catch (cbError) {
-        this.gvLog.error(cbError, {
-          gv: 'HKEND',
-        }, 'Unhandled callback Error in HKEND');
-      }
-    }, true);
+      msg.init(this.dialogId, this.nextMsgNr, this.blz, this.kundenId);
+      this.nextMsgNr += 1;
+      msg.addSeg(Helper.newSegFromArray('HKEND', 1, [this.dialogId]));
+      this.sendMsgToDestination(msg, (error, recvMsg) => {
+        if (error) {
+          this.gvLog.error(error, {
+            msg,
+            gv: 'HKEND',
+          }, 'HKEND could not be send');
+          reject(error);
+        } else {
+          resolve(recvMsg);
+        }
+      }, true);
+    });
   }
 
   public async connect(): Promise<void> {
@@ -521,10 +519,9 @@ export class FinTSClient {
     originalBpd.clone = this.bpd.clone;
     const originalUpd = this.upd.clone();
     originalUpd.clone = this.upd.clone;
-    const promise = new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.prepareConnection(resolve, reject, originalBpd, originalUpd);
     });
-    return promise;
   }
 
   public convertUmsatzeArrayToListofAllTransactions(umsaetze) {
@@ -756,33 +753,33 @@ export class FinTSClient {
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     cb
   */
-  public getTotal(konto: Konto, cb) {
-    const reqSaldo = new Order(this);
-    let processed = false;
-    let v5 = null;
-    let v7 = null;
-    const availSendMsg = {};
-    if ('iban' in konto && 'bic' in konto && reqSaldo.checkKITypeAvailible('HISAL', [7])) {
-      const kontoVerbInt = [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
-      v7 = [kontoVerbInt, 'N'];
-      availSendMsg[7] = v7;
-    } else {
-      const kontoVerb = [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
-      v5 = [kontoVerb, 'N'];
-      availSendMsg[5] = v5;
-      availSendMsg[6] = v5;
-    }
-    // Start
-    reqSaldo.msg({
-      type: 'HKSAL',
-      ki_type: 'HISAL',
-      send_msg: availSendMsg,
-      recv_msg: reqSaldo.helper().vers([5, 6, 7], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
-        try {
-          if (reqSaldo.checkMessagesOkay(relatedRespMsgs, true)) {
-            const HISAL = reqSaldo.getSegByName(relatedRespSegments, 'HISAL');
-            if (HISAL !== null) {
-              try {
+  public getTotal(konto: Konto): Promise<TotalResult> {
+    return new Promise<TotalResult>((resolve, reject) => {
+      const reqSaldo = new Order(this);
+      let processed = false;
+      let v5 = null;
+      let v7 = null;
+      const availSendMsg = {};
+      if ('iban' in konto && 'bic' in konto && reqSaldo.checkKITypeAvailible('HISAL', [7])) {
+        const kontoVerbInt = [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
+        v7 = [kontoVerbInt, 'N'];
+        availSendMsg[7] = v7;
+      } else {
+        const kontoVerb = [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
+        v5 = [kontoVerb, 'N'];
+        availSendMsg[5] = v5;
+        availSendMsg[6] = v5;
+      }
+      // Start
+      reqSaldo.msg({
+        type: 'HKSAL',
+        ki_type: 'HISAL',
+        send_msg: availSendMsg,
+        recv_msg: reqSaldo.helper().vers([5, 6, 7], (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
+          try {
+            if (reqSaldo.checkMessagesOkay(relatedRespMsgs, true)) {
+              const HISAL = reqSaldo.getSegByName(relatedRespSegments, 'HISAL');
+              if (HISAL !== null) {
                 const result = new TotalResult();
                 result.desc = reqSaldo.getElFromSeg(HISAL, 2, null);
                 result.currency = reqSaldo.getElFromSeg(HISAL, 3, null);
@@ -801,61 +798,40 @@ export class FinTSClient {
                   result.bookingDate = Helper.getJSDateFromSegTSP(HISAL, 11);
                   result.overdraft = Helper.getBetrag(HISAL, 9);
                 }
-                cb(null, recvMsg, result);
-              } catch (cbError) {
-                this.gvLog.error(cbError, {
-                  gv: 'HKSAL',
-                }, 'Unhandeled callback Error in HKSAL');
+                resolve(result);
+              } else {
+                throw new Error('TODO ausführlicherer Error');
               }
-            } else {
-              throw new Error('TODO ausführlicherer Error');
             }
-          }
-        } catch (e) {
-          this.gvLog.error(e, {
-            gv: 'HKSAL',
-            msgs: relatedRespMsgs,
-            segments: relatedRespSegments,
-          }, 'Exception while parsing HKSAL response');
-          try {
-            cb(e, null, null);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
+          } catch (e) {
+            this.gvLog.error(e, {
               gv: 'HKSAL',
-            }, 'Unhandeled callback Error in HKSAL');
+              msgs: relatedRespMsgs,
+              segments: relatedRespSegments,
+            }, 'Exception while parsing HKSAL response');
+            reject(e);
           }
-        }
-        processed = true;
-      }).done(),
-    });
-    reqSaldo.done((error, order, recvMsg) => {
-      if (error && !processed) {
-        this.gvLog.error(error, {
-          recvMsg,
-          gv: 'HKSAL',
-        }, 'Exception while parsing HKSAL');
-        try {
-          cb(error, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
+          processed = true;
+        }).done(),
+      });
+      reqSaldo.done((error, order, recvMsg) => {
+        if (error && !processed) {
+          this.gvLog.error(error, {
+            recvMsg,
             gv: 'HKSAL',
-          }, 'Unhandeled callback Error in HKSAL');
-        }
-      } else if (!processed) {
-        const ex = new Exceptions.InternalError('HKSAL response was not analysed');
-        this.gvLog.error(ex, {
-          recvMsg,
-          gv: 'HKSAL',
-        }, 'HKSAL response was not analysed');
-        try {
-          cb(ex, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
+          }, 'Exception while parsing HKSAL');
+          reject(error);
+        } else if (!processed) {
+          const ex = new Exceptions.InternalError('HKSAL response was not analysed');
+          this.gvLog.error(ex, {
+            recvMsg,
             gv: 'HKSAL',
-          }, 'Unhandled callback Error in HKSAL');
+          }, 'HKSAL response was not analysed');
+          reject(ex);
         }
-      }
+      });
     });
+
   }
 
   private logSuccessfullInit(step) {
@@ -944,7 +920,7 @@ export class FinTSClient {
       this.msgRequestSepa(null, (error4, recvMsg2, sepaList: Konto[]) => {
         if (error4) {
           this.conEstLog.error({
-            step:3,
+            step: 3,
           }, 'Error getting the available accounts.');
           this.endDialogIfNotCanceled(recvMsg);
           reject(error4);
@@ -961,7 +937,7 @@ export class FinTSClient {
           }
           // Fertig
           this.conEstLog.debug({
-            step:3,
+            step: 3,
             recv_sepa_list: sepaList,
           }, 'Connection entirely established and got available accounts. Return.');
           // Callback
@@ -982,13 +958,7 @@ export class FinTSClient {
       if (message.wasCanceled()) {
         resolve();
       } else {
-        this.msgEndDialog((err, endMessage: Nachricht) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(endMessage);
-          }
-        });
+        return this.endDialog();
       }
     });
 
@@ -1028,5 +998,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  }
+  };
 }
