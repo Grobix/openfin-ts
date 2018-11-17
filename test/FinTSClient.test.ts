@@ -153,29 +153,28 @@ describe('The FinTSClient', () => {
     try {
       await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data: Umsatz[]) => {
-        // Alles gut
-        expect(data).not.toBeNull();
-        expect(Array.isArray(data)).toBe(true);
-        expect(data[0]).not.toBeNull();
-        expect(data[1]).not.toBeNull();
-        expect(data[0].schlusssaldo.value).toBe(1223.57);
-        expect(data[1].schlusssaldo.value).toBe(1423.6);
-        // Test converter
-        const transActions = client.convertUmsatzeArrayToListofAllTransactions(data);
-        expect(transActions).not.toBeNull();
-        expect(Array.isArray(transActions)).toBe(true);
-        expect(transActions[0]).toBeDefined();
-        expect(transActions[1]).toBeDefined();
-        expect(transActions[2]).toBeDefined();
-        expect(transActions[3]).toBeUndefined();
+      const data = await client.getTransactions(client.konten[0].sepaData, null, null);
 
-        expect(transActions[0].value).toBe(182.34);
-        expect(transActions[1].value).toBe(100.03);
-        expect(transActions[2].value).toBe(100.00);
-        // Testcase erweitern
-        done();
-      }));
+      expect(data).not.toBeNull();
+      expect(Array.isArray(data)).toBe(true);
+      expect(data[0]).not.toBeNull();
+      expect(data[1]).not.toBeNull();
+      expect(data[0].schlusssaldo.value).toBe(1223.57);
+      expect(data[1].schlusssaldo.value).toBe(1423.6);
+
+      const transActions = client.convertUmsatzeArrayToListofAllTransactions(data);
+      expect(transActions).not.toBeNull();
+      expect(Array.isArray(transActions)).toBe(true);
+      expect(transActions[0]).toBeDefined();
+      expect(transActions[1]).toBeDefined();
+      expect(transActions[2]).toBeDefined();
+      expect(transActions[3]).toBeUndefined();
+
+      expect(transActions[0].value).toBe(182.34);
+      expect(transActions[1].value).toBe(100.03);
+      expect(transActions[2].value).toBe(100.00);
+      // Testcase erweitern
+      done();
     } catch (err) {
       done.fail(err);
     }
@@ -191,7 +190,7 @@ describe('The FinTSClient', () => {
       expect(data.total).not.toBeNull();
 
       const total = data.total as Saldo;
-      expect(total.betrag).toEqual({ value: 4.36, currency: 'EUR' });
+      expect(total.betrag).toEqual({value: 4.36, currency: 'EUR'});
       expect(total.currency).toBe('EUR');
       expect(total.sollHaben).toBe('H');
 
@@ -208,7 +207,7 @@ describe('The FinTSClient', () => {
       await client.connect();
       let errorChecked = false;
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data) => {
+      client.getTransactions(client.konten[0].sepaData, null, null).then(data => {
         expect(data).not.toBeNull();
         expect(Array.isArray(data)).toBe(true);
         expect(data[0]).not.toBeNull();
@@ -218,11 +217,11 @@ describe('The FinTSClient', () => {
 
         expect(errorChecked).toBe(true);
         done();
-      }));
+      });
+
       // das ist der eigentliche Test
       try {
-        client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data) => {
-        }));
+        await client.getTransactions(client.konten[0].sepaData, null, null);
       } catch (errorToCheck) {
         expect(errorToCheck).not.toBeNull();
         expect(errorToCheck).toBeInstanceOf(Exceptions.OutofSequenceMessageException);
@@ -246,16 +245,15 @@ describe('The FinTSClient with offset', () => {
     try {
       await client.connect();
       expect(client.konten[0].sepaData).not.toBeNull();
-      client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, makeCallback(done, (error2, rMsg, data: Umsatz[]) => {
-        expect(data).not.toBeNull();
-        expect(Array.isArray(data)).toBe(true);
-        expect(data[0]).not.toBeNull();
-        expect(data[1]).not.toBeNull();
-        expect(data[0].schlusssaldo.value).toBe(1223.57);
-        expect(data[1].schlusssaldo.value).toBe(1423.6);
-        // Testcase erweitern
-        done();
-      }));
+      const data = await client.getTransactions(client.konten[0].sepaData, null, null);
+      expect(data).not.toBeNull();
+      expect(Array.isArray(data)).toBe(true);
+      expect(data[0]).not.toBeNull();
+      expect(data[1]).not.toBeNull();
+      expect(data[0].schlusssaldo.value).toBe(1223.57);
+      expect(data[1].schlusssaldo.value).toBe(1423.6);
+      // Testcase erweitern
+      done();
     } catch (err) {
       done.fail(err);
     }

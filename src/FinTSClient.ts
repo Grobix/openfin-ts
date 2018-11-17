@@ -20,6 +20,7 @@ import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
 import { UPD } from './UPD';
 import { TotalResult } from './TotalResult';
+import { Umsatz } from './Umsatz';
 
 export class FinTSClient {
 
@@ -162,7 +163,7 @@ export class FinTSClient {
     });
     req.write(postData);
     req.end();
-  };
+  }
 
   public msgInitDialog(cb) {
     const msg: Nachricht = new Nachricht(this.protoVersion);
@@ -621,110 +622,76 @@ export class FinTSClient {
     to_date		können null sein
     cb
   */
-  public msgGetKontoUmsaetze(konto: Konto, fromDate, toDate, cb) {
-    let processed = false;
-    let v7 = null;
-    let v5 = null;
-    if (fromDate === null && toDate === null) {
-      v5 = [
-        [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N',
-      ];
-      v7 = [
-        [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N',
-      ];
-    } else {
-      v5 = [
-        [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
-      ];
-      v7 = [
-        [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N', fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : '',
-      ];
-    }
-    // Start
-    const reqUmsatz = new Order(this);
-    const recv = (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
-      try {
-        if (reqUmsatz.checkMessagesOkay(relatedRespMsgs, true)) {
-          // Erfolgreich Meldung
-          let txt = '';
-          for (const i in relatedRespSegments) {
-            if (relatedRespSegments[i].name === 'HIKAZ') {
-              const HIKAZ = relatedRespSegments[i];
-              txt += HIKAZ.getEl(1).data;
+  public getTransactions(konto: Konto, fromDate, toDate): Promise<Umsatz[]> {
+    return new Promise<Umsatz[]>((resolve, reject) => {
+      let processed = false;
+      let v5 = [[konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N'];
+      let v7 = [[konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N'];
+      if (fromDate !== null || toDate !== null) {
+        const dates = [fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : ''];
+        v5 = v5.concat(dates);
+        v7 = v7.concat(dates);
+      }
+      // Start
+      const reqUmsatz = new Order(this);
+      const recv = (segVers, relatedRespSegments, relatedRespMsgs, recvMsg) => {
+        try {
+          if (reqUmsatz.checkMessagesOkay(relatedRespMsgs, true)) {
+            // Erfolgreich Meldung
+            let txt = '';
+            for (const i in relatedRespSegments) {
+              if (relatedRespSegments[i].name === 'HIKAZ') {
+                const HIKAZ = relatedRespSegments[i];
+                txt += HIKAZ.getEl(1).data;
+              }
             }
+            const mtparse = new MTParser();
+            mtparse.parse(txt);
+            const umsatze = mtparse.getKontoUmsaetzeFromMT940();
+            // Callback
+            resolve(umsatze);
           }
-          const mtparse = new MTParser();
-          mtparse.parse(txt);
-          const umsatze = mtparse.getKontoUmsaetzeFromMT940();
-          // Callback
-          try {
-            cb(null, recvMsg, umsatze);
-          } catch (cbError) {
-            this.gvLog.error(cbError, {
-              gv: 'HKKAZ',
-            }, 'Unhandled callback Error in HKKAZ');
-          }
-        }
-      } catch (ee) {
-        this.gvLog.error(ee, {
-          gv: 'HKKAZ',
-          resp_msg: recvMsg,
-        }, 'Exception while parsing HKKAZ response');
-        // Callback
-        try {
-          cb(ee, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
+        } catch (ee) {
+          this.gvLog.error(ee, {
             gv: 'HKKAZ',
-          }, 'Unhandled callback Error in HKKAZ');
+            resp_msg: recvMsg,
+          }, 'Exception while parsing HKKAZ response');
+          reject(ee);
         }
-      }
-      processed = true;
-    };
-    // TODO check if we can do the old or the new version HKCAZ
-    reqUmsatz.msg({
-      type: 'HKKAZ',
-      ki_type: 'HIKAZ',
-      aufsetzpunkt_loc: [6],
-      send_msg: {
-        7: v7,
-        5: v5,
-      },
-      recv_msg: {
-        7: recv,
-        5: recv,
-      },
+        processed = true;
+      };
+      // TODO check if we can do the old or the new version HKCAZ
+      reqUmsatz.msg({
+        type: 'HKKAZ',
+        ki_type: 'HIKAZ',
+        aufsetzpunkt_loc: [6],
+        send_msg: {
+          7: v7,
+          5: v5,
+        },
+        recv_msg: {
+          7: recv,
+          5: recv,
+        },
+      });
+      reqUmsatz.done((error, order, recvMsg) => {
+        if (error && !processed) {
+          this.gvLog.error(error, {
+            recvMsg,
+            gv: 'HKKAZ',
+          }, 'HKKAZ could not be send');
+          reject(error);
+        } else if (!processed) {
+          const ex = new Exceptions.InternalError('HKKAZ response was not analysied');
+          this.gvLog.error(ex, {
+            recvMsg,
+            gv: 'HKKAZ',
+          }, 'HKKAZ response was not analysied');
+          reject(ex);
+        }
+      });
     });
-    reqUmsatz.done((error, order, recvMsg) => {
-      if (error && !processed) {
-        this.gvLog.error(error, {
-          recvMsg,
-          gv: 'HKKAZ',
-        }, 'HKKAZ could not be send');
-        // Callback
-        try {
-          cb(error, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
-            gv: 'HKKAZ',
-          }, 'Unhandled callback Error in HKKAZ');
-        }
-      } else if (!processed) {
-        const ex = new Exceptions.InternalError('HKKAZ response was not analysied');
-        this.gvLog.error(ex, {
-          recvMsg,
-          gv: 'HKKAZ',
-        }, 'HKKAZ response was not analysied');
-        // Callback
-        try {
-          cb(ex, recvMsg, null);
-        } catch (cbError) {
-          this.gvLog.error(cbError, {
-            gv: 'HKKAZ',
-          }, 'Unhandled callback Error in HKKAZ');
-        }
-      }
-    });
+
   }
 
   /*
@@ -973,5 +940,5 @@ export class FinTSClient {
     if (this.debugMode) {
       console.log((send ? 'Send: ' : 'Recv: ') + txt);
     }
-  };
+  }
 }

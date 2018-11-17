@@ -222,7 +222,7 @@ describe('test_real', function () {
         throw error
       } else {
         client.konten[0].sepaData.should.not.equal(null)
-        client.msgGetKontoUmsaetze(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
+        client.getTransactions(client.konten[0].sepaData, null, null, mocha_catcher(done, function (error2, rMsg, data) {
           if (error2) {
             if (error2 instanceof Exceptions.Exceptions.GVNotSupportedByKI &&
               error2.gv_type == 'HIKAZ') {
