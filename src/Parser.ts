@@ -22,10 +22,6 @@ export class Parser {
     return this.data;
   }
 
-  public clearMarker() {
-    this.marker = {};
-  }
-
   public setMarker(mark: string, pos: number) {
     this.marker[mark] = pos;
   }

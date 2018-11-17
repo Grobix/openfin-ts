@@ -6,12 +6,8 @@ export class OrderHelperChain {
   constructor(private order: Order) {
   }
 
-  public vers(v, cb) {
-    if (v instanceof Array) {
-      for (const i in v) {
-        this.returner[v[i]] = cb;
-      }
-    }
+  public vers(v: number[], cb) {
+    v.forEach(i => this.returner[i] = cb);
     return this;
   }
 
