@@ -5,20 +5,33 @@
 Typescript compatible fints implementation
 
 ## Install
+
 ```sh
+//npm
 npm install --save openfin-ts
+//yarn
+yarn add openfin-ts
 ```
 
-## Usage
-```js
-// const module = require('openfin-ts');
-// import module from 'openfin-ts';
+## Example
+```typescript
+import { FinTSClient } from 'openfin-ts';
+
+const client = new FinTSClient("12345",
+    "http://testbank.com/hbci",
+    "customerId",
+    "1234pin");
+
+try {
+  await client.connect();
+  const transactions = await client.getTransactions(client.konten[0].sepaData, null, null);
+  transactions.forEach(transaction => {
+        //Do things with transactions
+  });
+  await client.close();
+} catch (err) {
+  //handle errors
+}
 ```
 
-## Dev Features
-* Testing with Jest
-* Linting out of the box (checks the style of your code), with TSLint
-* Build, prepublish and other scripts to help you to develop
-* Works with Typescript: Static typing for your JS Applications, reducing amount of runtime errors
-* Coverage out of the box, thanks to Jest
-* Uses deterministic module resolving, with `package-lock.json`
+For more examples see the tests in `/test`
