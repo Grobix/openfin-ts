@@ -1,11 +1,11 @@
-import { Betrag } from './Betrag';
 import { ByteVal } from './ByteVal';
 import { DatenElement } from './DatenElement';
 import { DatenElementGruppe } from './DatenElementGruppe';
+import { Figure } from './Figure';
 import { Nachricht } from './Nachricht';
-import { Saldo } from './Saldo';
+import { Balance } from './Balance';
 import { Segment } from './Segment';
-import { UmsatzTyp } from './UmsatzTyp';
+import { TransactionType } from './TransactionType';
 
 export class Helper {
 
@@ -117,26 +117,26 @@ export class Helper {
 
     try {
       const base = seg.getEl(nr).data;
-      const result = new Saldo();
+      const result = new Balance();
 
-      result.sollHaben = base.getEl(1) === 'C' ? UmsatzTyp.HABEN : UmsatzTyp.SOLL;
+      result.transactionType = base.getEl(1) === 'C' ? TransactionType.CREDIT : TransactionType.DEBIT;
       result.currency = hbciVer3 ? 'EUR' : base.getEl(3);
       result.value = parseFloat(base.getEl(2).replace(',', '.'));
-      result.buchungsdatum = this.getJSDateFromSeg(base, hbciVer3 ? 3 : 4, hbciVer3 ? 4 : 5);
+      result.entryDate = this.getJSDateFromSeg(base, hbciVer3 ? 3 : 4, hbciVer3 ? 4 : 5);
       return result;
     } catch (ee) {
       return null;
     }
   }
 
-  public static getBetrag(seg, nr): Betrag {
+  public static getBetrag(seg, nr): Figure {
     if (!seg) {
       return null;
     }
 
     try {
       const base = seg.getEl(nr).data;
-      const result = new Betrag();
+      const result = new Figure();
       result.currency = base.getEl(2);
       result.value = parseFloat(base.getEl(1).replace(',', '.'));
       return result;

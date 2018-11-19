@@ -1,9 +1,9 @@
-import { Konto } from '../src';
+import { Account } from '../src/Account';
+import { Balance } from '../src/Balance';
 import { Exceptions } from '../src/Exceptions';
 import { FinTSClient } from '../src/FinTSClient';
-import { Saldo } from '../src/Saldo';
 import { TotalResult } from '../src/TotalResult';
-import { Umsatz } from '../src/Umsatz';
+import { Transaction } from '../src/Transaction';
 import { makeCallback } from './TestHelpers';
 import TestServer from './TestServer';
 
@@ -159,8 +159,8 @@ describe('The FinTSClient', () => {
       expect(Array.isArray(data)).toBe(true);
       expect(data[0]).not.toBeNull();
       expect(data[1]).not.toBeNull();
-      expect(data[0].schlusssaldo.value).toBe(1223.57);
-      expect(data[1].schlusssaldo.value).toBe(1423.6);
+      expect(data[0].closingBalance.value).toBe(1223.57);
+      expect(data[1].closingBalance.value).toBe(1423.6);
 
       const transActions = client.convertUmsatzeArrayToListofAllTransactions(data);
       expect(transActions).not.toBeNull();
@@ -189,10 +189,10 @@ describe('The FinTSClient', () => {
       expect(data.total).toBeDefined();
       expect(data.total).not.toBeNull();
 
-      const total = data.total as Saldo;
-      expect(total.betrag).toEqual({value: 4.36, currency: 'EUR'});
+      const total = data.total as Balance;
+      expect(total.figure).toEqual({ value: 4.36, currency: 'EUR' });
       expect(total.currency).toBe('EUR');
-      expect(total.sollHaben).toBe('H');
+      expect(total.transactionType).toBe('H');
 
       await client.close();
       done();
@@ -212,8 +212,8 @@ describe('The FinTSClient', () => {
         expect(Array.isArray(data)).toBe(true);
         expect(data[0]).not.toBeNull();
         expect(data[1]).not.toBeNull();
-        expect(data[0].schlusssaldo.value).toBe(1223.57);
-        expect(data[1].schlusssaldo.value).toBe(1423.6);
+        expect(data[0].closingBalance.value).toBe(1223.57);
+        expect(data[1].closingBalance.value).toBe(1423.6);
 
         expect(errorChecked).toBe(true);
         done();
@@ -250,8 +250,8 @@ describe('The FinTSClient with offset', () => {
       expect(Array.isArray(data)).toBe(true);
       expect(data[0]).not.toBeNull();
       expect(data[1]).not.toBeNull();
-      expect(data[0].schlusssaldo.value).toBe(1223.57);
-      expect(data[1].schlusssaldo.value).toBe(1423.6);
+      expect(data[0].closingBalance.value).toBe(1223.57);
+      expect(data[1].closingBalance.value).toBe(1423.6);
       // Testcase erweitern
       done();
     } catch (err) {

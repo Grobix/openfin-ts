@@ -1,4 +1,4 @@
-export class Verwendungszweck {
+export class Description {
   public text: string;
   public buchungstext: string;
   public bicKontrahent: string;

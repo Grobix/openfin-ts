@@ -3,11 +3,11 @@ import { ClientRequest } from 'http';
 import * as http from 'http';
 import * as https from 'https';
 import * as url from 'url';
+import { Account } from './Account';
 import { BPD } from './BPD';
 import { DatenElementGruppe } from './DatenElementGruppe';
 import { Exceptions } from './Exceptions';
 import { Helper } from './Helper';
-import { Konto } from './Konto';
 import { Logger } from './Logger';
 import { MTParser } from './MTParser';
 import { Nachricht } from './Nachricht';
@@ -19,7 +19,7 @@ import { SegmentName } from './SegmentName';
 import { SignInfo } from './SignInfo';
 import { TanVerfahren } from './TanVerfahren';
 import { TotalResult } from './TotalResult';
-import { Umsatz } from './Umsatz';
+import { Transaction } from './Transaction';
 import { UPD } from './UPD';
 
 export class FinTSClient {
@@ -36,7 +36,7 @@ export class FinTSClient {
   public tan = NULL;
 
   public upd: UPD = new UPD();
-  public konten: Konto[] = [];
+  public konten: Account[] = [];
   private ctry = 280;
 
   private debugMode = false;
@@ -245,16 +245,16 @@ export class FinTSClient {
               if (this.konten.length === 0) {
                 const kontoList = recvMsg.getSegmentsByName('HIUPD');
                 kontoList.forEach(kontodata => {
-                  const konto = new Konto();
+                  const konto = new Account();
                   konto.iban = kontodata.getEl(2).data;
-                  konto.kontoNr = kontodata.getEl(1).data.getEl(1);
-                  konto.unterKonto = kontodata.getEl(1).data.getEl(2);
+                  konto.accountNumber = kontodata.getEl(1).data.getEl(1);
+                  konto.subAccount = kontodata.getEl(1).data.getEl(2);
                   konto.countryCode = kontodata.getEl(1).data.getEl(3);
                   konto.blz = kontodata.getEl(1).data.getEl(4);
-                  konto.kundenId = kontodata.getEl(3).data;
-                  konto.kontoart = kontodata.getEl(4).data;
+                  konto.customerId = kontodata.getEl(3).data;
+                  konto.accountType = kontodata.getEl(4).data;
                   konto.currency = kontodata.getEl(5).data;
-                  konto.kunde1Name = kontodata.getEl(6).data;
+                  konto.customerName = kontodata.getEl(6).data;
                   konto.productName = kontodata.getEl(8).data;
                   konto.sepaData = null;
                   this.konten.push(konto);
@@ -528,16 +528,16 @@ export class FinTSClient {
   public convertUmsatzeArrayToListofAllTransactions(umsaetze) {
     const result = [];
     for (let i = 0; i !== umsaetze.length; i += 1) {
-      for (let a = 0; a !== umsaetze[i].saetze.length; a += 1) {
-        result.push(umsaetze[i].saetze[a]);
+      for (let a = 0; a !== umsaetze[i].records.length; a += 1) {
+        result.push(umsaetze[i].records[a]);
       }
     }
     return result;
   }
 
   // SEPA kontoverbindung anfordern HKSPA, HISPA ist die antwort
-  public getSepa(forKonto): Promise<Konto[]> {
-    return new Promise<Konto[]>((resolve, reject) => {
+  public getSepa(forKonto): Promise<Account[]> {
+    return new Promise<Account[]>((resolve, reject) => {
       // Vars
       let processed = false;
       let v1 = null;
@@ -571,12 +571,12 @@ export class FinTSClient {
               if (HISPA !== null) {
                 for (let i = 0; i !== HISPA.store.data.length; i += 1) {
                   const verb = HISPA.getEl(i + 1).data as DatenElementGruppe;
-                  const o = new Konto();
+                  const o = new Account();
                   o.isSepa = verb.getEl(1) === 'J';
                   o.iban = verb.getEl(2);
                   o.bic = verb.getEl(3);
-                  o.kontoNr = verb.getEl(4);
-                  o.unterKonto = verb.getEl(5);
+                  o.accountNumber = verb.getEl(4);
+                  o.subAccount = verb.getEl(5);
                   o.countryCode = verb.getEl(6);
                   o.blz = verb.getEl(7);
                   sepaList.push(o);
@@ -622,11 +622,11 @@ export class FinTSClient {
     to_date		können null sein
     cb
   */
-  public getTransactions(konto: Konto, fromDate, toDate): Promise<Umsatz[]> {
-    return new Promise<Umsatz[]>((resolve, reject) => {
+  public getTransactions(account: Account, fromDate, toDate): Promise<Transaction[]> {
+    return new Promise<Transaction[]>((resolve, reject) => {
       let processed = false;
-      let v5 = [[konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N'];
-      let v7 = [[konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz], 'N'];
+      let v5 = [[account.accountNumber, account.subAccount, account.countryCode, account.blz], 'N'];
+      let v7 = [[account.iban, account.bic, account.accountNumber, account.subAccount, account.countryCode, account.blz], 'N'];
       if (fromDate !== null || toDate !== null) {
         const dates = [fromDate !== null ? Helper.convertDateToDFormat(fromDate) : '', toDate !== null ? Helper.convertDateToDFormat(toDate) : ''];
         v5 = v5.concat(dates);
@@ -698,19 +698,19 @@ export class FinTSClient {
     konto = {iban,bic,konto_nr,unter_konto,ctry_code,blz}
     cb
   */
-  public getTotal(konto: Konto): Promise<TotalResult> {
+  public getTotal(account: Account): Promise<TotalResult> {
     return new Promise<TotalResult>((resolve, reject) => {
       const reqSaldo = new Order(this);
       let processed = false;
       let v5 = null;
       let v7 = null;
       const availSendMsg = {};
-      if ('iban' in konto && 'bic' in konto && reqSaldo.checkKITypeAvailible('HISAL', [7])) {
-        const kontoVerbInt = [konto.iban, konto.bic, konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
+      if ('iban' in account && 'bic' in account && reqSaldo.checkKITypeAvailible('HISAL', [7])) {
+        const kontoVerbInt = [account.iban, account.bic, account.accountNumber, account.subAccount, account.countryCode, account.blz];
         v7 = [kontoVerbInt, 'N'];
         availSendMsg[7] = v7;
       } else {
-        const kontoVerb = [konto.kontoNr, konto.unterKonto, konto.countryCode, konto.blz];
+        const kontoVerb = [account.accountNumber, account.subAccount, account.countryCode, account.blz];
         v5 = [kontoVerb, 'N'];
         availSendMsg[5] = v5;
         availSendMsg[6] = v5;
@@ -866,8 +866,8 @@ export class FinTSClient {
         // Erfolgreich die Kontendaten geladen, diese jetzt noch in konto mergen und Fertig!
         for (let i = 0; i !== sepaList.length; i += 1) {
           for (let j = 0; j !== this.konten.length; j += 1) {
-            if (this.konten[j].kontoNr === sepaList[i].kontoNr &&
-              this.konten[j].unterKonto === sepaList[i].unterKonto) {
+            if (this.konten[j].accountNumber === sepaList[i].accountNumber &&
+              this.konten[j].subAccount === sepaList[i].subAccount) {
               this.konten[j].sepaData = sepaList[i];
               break;
             }

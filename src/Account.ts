@@ -1,15 +1,14 @@
-export class Konto {
+export class Account {
   public iban: string = '';
-  public kontoNr: string = '';
-  public unterKontoMerkmal = null;
+  public accountNumber: string = '';
   public countryCode: string = '';
   public blz: string = '';
-  public kundenId: string = '';
-  public kontoart: string = '';
+  public customerId: string = '';
+  public accountType: string = '';
   public currency: string = '';
-  public kunde1Name: string = '';
+  public customerName: string = '';
   public productName: string = '';
-  public unterKonto: any;
+  public subAccount: any;
   public sepaData: any;
   public isSepa: boolean;
   public bic: string;

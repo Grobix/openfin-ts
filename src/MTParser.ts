@@ -1,9 +1,9 @@
+import { Balance } from './Balance';
 import { Parser } from './Parser';
-import { Saldo } from './Saldo';
-import { Satz } from './Satz';
-import { Umsatz } from './Umsatz';
-import { UmsatzTyp } from './UmsatzTyp';
-import { Verwendungszweck } from './Verwendungszweck';
+import { Transaction } from './Transaction';
+import { TransactionRecord } from './TransactionRecord';
+import { TransactionType } from './TransactionType';
+import { Description } from './Description';
 
 // This Parser parses S.W.I.F.T MTXXX Formats
 // http://www.hbci-zka.de/dokumente/spezifikation_deutsch/fintsv3/FinTS_3.0_Messages_Finanzdatenformate_2010-08-06_final_version.pdf
@@ -70,9 +70,9 @@ export class MTParser {
     this.msgss = msgs;
   }
 
-  public getKontoUmsaetzeFromMT940(): Umsatz[] {
+  public getKontoUmsaetzeFromMT940(): Transaction[] {
     return this.msgss.map(msg => {
-      const umsatz = new Umsatz();
+      const umsatz = new Transaction();
       // Starten
       for (let a = 0; a < msg.length; a += 1) {
         switch (msg[a][0]) {
@@ -105,22 +105,22 @@ export class MTParser {
     });
   }
 
-  public parseMT940_60a(umsatz: Umsatz, msg) {
-    umsatz.anfangssaldo = this.getSaldoFromMessage(msg);
+  public parseMT940_60a(umsatz: Transaction, msg) {
+    umsatz.beginningBalance = this.getSaldoFromMessage(msg);
   }
 
-  public parseMT940_62a(umsatz: Umsatz, msg) {
-    umsatz.schlusssaldo = this.getSaldoFromMessage(msg);
+  public parseMT940_62a(umsatz: Transaction, msg) {
+    umsatz.closingBalance = this.getSaldoFromMessage(msg);
   }
 
-  public parseMT940_loop(umsatz: Umsatz, msg, i) {
-    umsatz.saetze = [];
+  public parseMT940_loop(umsatz: Transaction, msg, i) {
+    umsatz.records = [];
     let idx = i;
     for (; idx < msg.length && msg[idx][0] === '61'; idx += 1) {
-      const satz = new Satz();
+      const satz = new TransactionRecord();
       let pos = 0;
       // 1. 61
-      satz.datum = this.convertMTDateFormatToJS(msg[idx][1].substr(0, 6));
+      satz.date = this.convertMTDateFormatToJS(msg[idx][1].substr(0, 6));
       if ('0123456789'.includes(msg[idx][1][6])) {
         // optionales feld Buchungstag
         pos = 10;
@@ -128,18 +128,18 @@ export class MTParser {
         pos = 6;
       }
       if (msg[idx][1][pos] === 'R') {
-        satz.isStorno = true;
+        satz.isReversal = true;
         pos += 1;
       } else {
-        satz.isStorno = false;
+        satz.isReversal = false;
       }
-      satz.sollHaben = msg[idx][1][pos] === 'C' ? UmsatzTyp.HABEN : UmsatzTyp.SOLL;
+      satz.transactionType = msg[idx][1][pos] === 'C' ? TransactionType.CREDIT : TransactionType.DEBIT;
       pos += 1;
       if (!'0123456789'.includes(msg[idx][1][pos])) {
         // optionales feld Währungsunterscheidung
         pos += 1;
       }
-      // Betrag
+      // Figure
       const startPos = pos;
       let endPos = pos;
       for (let j = startPos; j < msg[idx][1].length; j += 1) {
@@ -154,17 +154,24 @@ export class MTParser {
       idx += 1;
       this.parseMT940_86(satz, msg[idx][1]);
       // TODO hier gibt es auch noch eine weiter bearbeitung
-      umsatz.saetze.push(satz);
+      umsatz.records.push(satz);
     }
     return idx - 1;
   }
 
-  private parseMT940_86(satz: Satz, rawVerwendungszweck) {
+  public convertMTDateFormatToJS(date: string) {
+    const dtYear = parseInt(`20${date.substr(0, 2)}`, 10);
+    const dtMonth = parseInt(date.substr(2, 2), 10) - 1;
+    const dtDate = parseInt(date.substr(4, 2), 10);
+    return new Date(dtYear, dtMonth, dtDate);
+  }
 
-    satz.isVerwendungszweckObject = rawVerwendungszweck.substr(0, 4).includes('?');
-    if (satz.isVerwendungszweckObject) {
-      satz.verwendungszweck = new Verwendungszweck();
-      satz.verwendungszweck.text = '';
+  private parseMT940_86(satz: TransactionRecord, rawVerwendungszweck) {
+
+    satz.isReferenceObject = rawVerwendungszweck.substr(0, 4).includes('?');
+    if (satz.isReferenceObject) {
+      satz.description = new Description();
+      satz.description.text = '';
       const p = new Parser(rawVerwendungszweck);
       p.gotoNextValidChar('?');
       while (p.hasNext()) {
@@ -180,10 +187,10 @@ export class MTParser {
         // Processing
         switch (code) {
           case '00':
-            satz.verwendungszweck.buchungstext = value;
+            satz.description.buchungstext = value;
             break;
           case '10':
-            satz.verwendungszweck.primanotenNr = value;
+            satz.description.primanotenNr = value;
             break;
           case '20':
           case '21':
@@ -199,41 +206,35 @@ export class MTParser {
           case '61':
           case '62':
           case '63':
-            satz.verwendungszweck.text += value;
+            satz.description.text += value;
             break;
           case '30':
-            satz.verwendungszweck.bicKontrahent = value;
+            satz.description.bicKontrahent = value;
             break;
           case '31':
-            satz.verwendungszweck.ibanKontrahent = value;
+            satz.description.ibanKontrahent = value;
             break;
           case '32':
           case '33':
-            satz.verwendungszweck.nameKontrahent += value;
+            satz.description.nameKontrahent += value;
             break;
           case '34':
-            satz.verwendungszweck.textKeyAddion = value;
+            satz.description.textKeyAddion = value;
             break;
         }
       }
     } else {
-      satz.verwendungszweck = rawVerwendungszweck;
+      satz.description = new Description();
+      satz.description.text = rawVerwendungszweck;
     }
-  }
-
-  public convertMTDateFormatToJS(date: string) {
-    const dtYear = parseInt(`20${date.substr(0, 2)}`, 10);
-    const dtMonth = parseInt(date.substr(2, 2), 10) - 1;
-    const dtDate = parseInt(date.substr(4, 2), 10);
-    return new Date(dtYear, dtMonth, dtDate);
   }
 
   private getSaldoFromMessage(msg) {
     const string = msg[1];
-    const saldo = new Saldo();
-    saldo.isZwischensaldo = msg[0][2] === 'M';
-    saldo.sollHaben = string[0] === 'C' ? UmsatzTyp.HABEN : UmsatzTyp.SOLL;
-    saldo.buchungsdatum = this.convertMTDateFormatToJS(string.substr(1, 6));
+    const saldo = new Balance();
+    saldo.isInterimBalance = msg[0][2] === 'M';
+    saldo.transactionType = string[0] === 'C' ? TransactionType.CREDIT : TransactionType.DEBIT;
+    saldo.entryDate = this.convertMTDateFormatToJS(string.substr(1, 6));
     saldo.currency = string.substr(7, 3);
     saldo.value = parseFloat(string.substr(10, string.length).replace(',', '.'));
     return saldo;
